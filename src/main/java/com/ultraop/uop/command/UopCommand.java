@@ -7,6 +7,7 @@ import com.ultraop.uop.service.CheckpointService;
 import com.ultraop.uop.service.DamageService;
 import com.ultraop.uop.service.EnchantService;
 import com.ultraop.uop.service.FreezeImmortalService;
+import com.ultraop.uop.service.PendingActionService;
 import com.ultraop.uop.profile.PlayerProfileService;
 import com.ultraop.uop.target.TargetResolver;
 import com.ultraop.uop.team.TeamService;
@@ -38,12 +39,13 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     private final EnchantService enchants;
     private final FreezeImmortalService states;
     private final PlayerProfileService profiles;
+    private final PendingActionService pending;
 
     public UopCommand(UopPlugin plugin, TeamService teams, TargetResolver targets,
                       ArmorKitService kits, ArmorLoadoutService loadouts,
                       CheckpointService checkpoints, DamageService damage,
                       EnchantService enchants, FreezeImmortalService states,
-                      PlayerProfileService profiles) {
+                      PlayerProfileService profiles, PendingActionService pending) {
         this.plugin = plugin;
         this.teams = teams;
         this.targets = targets;
@@ -54,6 +56,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         this.enchants = enchants;
         this.states = states;
         this.profiles = profiles;
+        this.pending = pending;
     }
 
     private boolean admin(CommandSender sender) {
@@ -179,14 +182,20 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 return;
             }
             int level = integer(a[5], 1, 5, "Enchantment preset level");
-            List<Player> selected = targets.resolve(sender, a[6]);
-            int success = 0;
+            List<String> names = targets.resolveNames(sender, a[6]);
+            int success = 0, queued = 0;
             List<String> skipped = new ArrayList<>();
-            for (Player player : selected) {
-                if (kits.giveDirect(player, a[3], level)) success++;
-                else skipped.add(player.getName());
+            for (String name : names) {
+                Player player = Bukkit.getPlayerExact(name);
+                if (player != null && player.isOnline()) {
+                    if (kits.giveDirect(player, a[3], level)) success++;
+                    else skipped.add(name + " (inventory full)");
+                } else {
+                    pending.queueDirectKit(name, a[3], level);
+                    queued++;
+                }
             }
-            msg(sender, "&aDirect kit applied to " + success + " player(s).");
+            msg(sender, "&aDirect kit applied to " + success + " online player(s); queued for " + queued + " offline profile(s).");
             if (!skipped.isEmpty()) msg(sender, "&eNo inventory space; left unchanged: &f" + String.join(", ", skipped));
             return;
         }
@@ -196,19 +205,37 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                         "/uop armor give <saved|random> <target> <set_name|set1,set2,...|all>");
                 return;
             }
-            List<Player> selected = targets.resolve(sender, a[3]);
             List<String> candidates = mode.equals("random") && !a[4].equalsIgnoreCase("all")
                     ? Arrays.stream(a[4].split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList()
                     : List.of();
-            int success = 0;
+            List<String> names = targets.resolveNames(sender, a[3]);
+            int success = 0, queued = 0;
             List<String> failed = new ArrayList<>();
-            for (Player player : selected) {
-                boolean applied = mode.equals("saved") ? loadouts.give(a[4], player)
-                        : loadouts.giveRandom(candidates, player);
-                if (applied) success++;
-                else failed.add(player.getName());
+            if (mode.equals("saved") && !loadouts.exists(a[4])) throw new IllegalArgumentException("Loadout not found: " + a[4]);
+            for (String name : names) {
+                Player player = Bukkit.getPlayerExact(name);
+                if (mode.equals("saved")) {
+                    if (player != null && player.isOnline()) {
+                        if (loadouts.give(a[4], player)) success++;
+                        else failed.add(name);
+                    } else {
+                        pending.queueLoadout(name, a[4]);
+                        queued++;
+                    }
+                } else {
+                    String chosen = loadouts.chooseRandomName(candidates);
+                    if (chosen == null) {
+                        failed.add(name);
+                    } else if (player != null && player.isOnline()) {
+                        if (loadouts.give(chosen, player)) success++;
+                        else failed.add(name);
+                    } else {
+                        pending.queueLoadout(name, chosen);
+                        queued++;
+                    }
+                }
             }
-            msg(sender, "&aLoadout applied to " + success + " player(s).");
+            msg(sender, "&aLoadout applied to " + success + " online player(s); queued for " + queued + " offline profile(s).");
             if (!failed.isEmpty()) msg(sender, "&eNo matching saved loadout for: &f" + String.join(", ", failed));
             return;
         }
@@ -237,9 +264,21 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     hint(sender, "Select saved checkpoint, then target", "/uop checkpoint tp <checkpoint_name> <target>");
                     return;
                 }
-                List<Player> selected = targets.resolve(sender, a[3]);
-                int restored = checkpoints.restore(a[2], selected);
-                msg(sender, "&aCheckpoint restored + teleported: " + restored + " player(s).");
+                List<String> names = targets.resolveNames(sender, a[3]);
+                int restored = 0, queued = 0, missing = 0;
+                for (String name : names) {
+                    Player player = Bukkit.getPlayerExact(name);
+                    if (player != null && player.isOnline()) {
+                        restored += checkpoints.restore(a[2], List.of(player));
+                    } else if (checkpoints.hasSnapshot(a[2], name)) {
+                        pending.queueCheckpointRestore(name, a[2]);
+                        queued++;
+                    } else {
+                        missing++;
+                    }
+                }
+                msg(sender, "&aCheckpoint restored for " + restored + " online player(s); queued for " + queued + " offline profile(s).");
+                if (missing > 0) msg(sender, "&eNo saved snapshot for " + missing + " target(s).");
             }
             case "delete" -> {
                 if (a.length != 3) {
@@ -327,20 +366,37 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 hint(sender, "Select scope, target, enchantment and valid level", "/uop enchant <all|armor|equipment|mainhand|offhand|inventory> <target> <enchantment> <level>");
                 return;
             }
-            List<Player> selected = targets.resolve(sender, a[2]);
-            int changed = enchants.apply(selected, a[1], a[3], integer(a[4], 1, 255, "Enchantment level"));
-            msg(sender, "&aEnchantment applied to " + changed + " item(s).");
+            List<String> names = targets.resolveNames(sender, a[2]);
+            int changed = 0, queued = 0;
+            for (String name : names) {
+                Player player = Bukkit.getPlayerExact(name);
+                if (player != null && player.isOnline()) {
+                    changed += enchants.apply(List.of(player), a[1], a[3], integer(a[4], 1, 255, "Enchantment level"));
+                } else {
+                    pending.queueEnchant(name, a[1], a[3], integer(a[4], 1, 255, "Enchantment level"));
+                    queued++;
+                }
+            }
+            msg(sender, "&aEnchantment applied to " + changed + " online item(s); queued for " + queued + " offline profile(s).");
         } else {
             if (a.length != 4 && a.length != 5) {
                 hint(sender, "Select scope, target, optional slot and enchantment", "/uop disenchant <all|armor|equipment|hand|inventory> <target> [slot] <enchantment>");
                 return;
             }
-            List<Player> selected = targets.resolve(sender, a[2]);
+            List<String> names = targets.resolveNames(sender, a[2]);
             String slot = a.length == 5 ? a[3] : null;
             String enchantment = a.length == 5 ? a[4] : a[3];
-            String scope = a[1];
-            int changed = enchants.remove(selected, scope, slot, enchantment);
-            msg(sender, "&aRemoved selected enchantment from " + changed + " item(s).");
+            int changed = 0, queued = 0;
+            for (String name : names) {
+                Player player = Bukkit.getPlayerExact(name);
+                if (player != null && player.isOnline()) {
+                    changed += enchants.remove(List.of(player), a[1], slot, enchantment);
+                } else {
+                    pending.queueDisenchant(name, a[1], slot, enchantment);
+                    queued++;
+                }
+            }
+            msg(sender, "&aDisenchantment removed from " + changed + " online item(s); queued for " + queued + " offline profile(s).");
         }
     }
 
