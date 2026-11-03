@@ -34,6 +34,31 @@ public final class PendingActionService {
         return "players." + playerName.toLowerCase(Locale.ROOT) + ".pending-actions";
     }
 
+    public void queueArmorSet(String playerName, String material, String mode,
+                              boolean includeWeapons, List<String> weaponNames) {
+        Map<String, Object> action = new HashMap<>();
+        action.put("type", "armor-set");
+        action.put("material", material);
+        action.put("mode", mode);
+        action.put("include-weapons", includeWeapons);
+        action.put("weapons", new ArrayList<>(weaponNames));
+        queue(playerName, action);
+    }
+
+    public void queueWeaponSet(String playerName, String mode, List<String> weaponNames) {
+        Map<String, Object> action = new HashMap<>();
+        action.put("type", "weapon-set");
+        action.put("mode", mode);
+        action.put("weapons", new ArrayList<>(weaponNames));
+        queue(playerName, action);
+    }
+
+    public void queueArmorRemove(String playerName) {
+        Map<String, Object> action = new HashMap<>();
+        action.put("type", "armor-remove");
+        queue(playerName, action);
+    }
+
     public void queueDirectKit(String playerName, String material, int level) {
         Map<String, Object> action = new HashMap<>();
         action.put("type", "direct-kit");
@@ -115,6 +140,21 @@ public final class PendingActionService {
     private boolean applyOne(Player player, Map<String, Object> action) {
         String type = String.valueOf(action.get("type"));
         switch (type) {
+            case "armor-set" -> {
+                List<String> weapons = action.get("weapons") instanceof List<?> values
+                        ? values.stream().map(String::valueOf).toList() : List.of();
+                boolean includeWeapons = Boolean.TRUE.equals(action.get("include-weapons"));
+                return kits.setArmor(player, String.valueOf(action.get("material")),
+                        String.valueOf(action.get("mode")), includeWeapons, weapons);
+            }
+            case "weapon-set" -> {
+                List<String> weapons = action.get("weapons") instanceof List<?> values
+                        ? values.stream().map(String::valueOf).toList() : List.of();
+                return kits.giveWeapons(player, String.valueOf(action.get("mode")), weapons);
+            }
+            case "armor-remove" -> {
+                return kits.removeArmor(player);
+            }
             case "direct-kit" -> {
                 String material = String.valueOf(action.get("material"));
                 int level = ((Number) action.get("level")).intValue();
