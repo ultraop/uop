@@ -61,7 +61,7 @@ public final class UopPlugin extends JavaPlugin {
 
     private void initializeServices() {
         store = new UopStore(this);
-        teams = new TeamService(store);
+        teams = new TeamService(store, getConfig().getBoolean("teams.friendly-fire-default", true));
         targets = new TargetResolver(teams);
         profiles = new PlayerProfileService(store, teams);
         kits = new ArmorKitService();
@@ -84,6 +84,7 @@ public final class UopPlugin extends JavaPlugin {
     }
 
     public void reloadUop() {
+        store.save();
         reloadConfig();
         store.reload();
         names.refreshAll();
