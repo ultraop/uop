@@ -38,6 +38,19 @@ public final class ArmorKitService {
         return List.of("plain", "enchanted", "max");
     }
 
+    public void validateSetArgs(String material, String mode, boolean includeWeapons, List<String> weaponNames) {
+        normalizeClassicMaterial(material);
+        parseTier(mode);
+        if (includeWeapons) createWeapons(weaponNames, mode, parseTier(mode));
+        else if (weaponNames != null && !weaponNames.isEmpty()) {
+            throw new IllegalArgumentException("Weapon names require weapon_on to be true.");
+        }
+    }
+
+    public void validateWeaponArgs(String mode, List<String> weaponNames) {
+        createWeapons(weaponNames, mode, parseTier(mode));
+    }
+
     /**
      * Legacy-compatible armor set operation with a no-drop replacement policy.
      * Old armor is moved into the player's storage inventory. If that cannot be
