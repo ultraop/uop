@@ -139,7 +139,9 @@ public final class CheckpointService {
             player.getInventory().setItemInOffHand(offhand instanceof ItemStack item ? item.clone() : null);
             player.getInventory().setHeldItemSlot(Math.max(0, Math.min(8, store.data().getInt(base + ".held-slot", 0))));
             player.setFoodLevel(Math.max(0, Math.min(20, store.data().getInt(base + ".food", 20))));
-            player.setSaturation(Math.max(0.0f, store.data().getFloat(base + ".saturation", 5.0f)));
+            Object saturationValue = store.data().get(base + ".saturation");
+            float saturation = saturationValue instanceof Number number ? number.floatValue() : 5.0f;
+            player.setSaturation(Math.max(0.0f, saturation));
             double health = store.data().getDouble(base + ".health", 20.0);
             player.setHealth(Math.max(1.0, Math.min(player.getMaxHealth(), health)));
             for (PotionEffect existing : player.getActivePotionEffects()) player.removePotionEffect(existing.getType());
