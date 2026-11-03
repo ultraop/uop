@@ -50,7 +50,8 @@ public final class CheckpointService {
             store.data().set(base + ".pitch", location.getPitch());
             store.data().set(base + ".storage", cloneItems(player.getInventory().getStorageContents()));
             store.data().set(base + ".armor", cloneItems(player.getInventory().getArmorContents()));
-            store.data().set(base + ".offhand", player.getInventory().getItemInOffHand());
+            ItemStack offhand = player.getInventory().getItemInOffHand();
+            store.data().set(base + ".offhand", offhand == null ? null : offhand.clone());
             store.data().set(base + ".held-slot", player.getInventory().getHeldItemSlot());
             store.data().set(base + ".health", player.getHealth());
             store.data().set(base + ".food", player.getFoodLevel());
