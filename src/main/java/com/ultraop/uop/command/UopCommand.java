@@ -387,9 +387,18 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     hint(sender, "Enter checkpoint name, then a target", "/uop checkpoint save <checkpoint_name> <target>");
                     return;
                 }
-                List<Player> selected = targets.resolve(sender, a[3]);
+                List<String> targetNames = targets.resolveNames(sender, a[3]);
+                List<Player> selected = new ArrayList<>();
+                List<String> offline = new ArrayList<>();
+                for (String name : targetNames) {
+                    Player player = Bukkit.getPlayerExact(name);
+                    if (player != null && player.isOnline()) selected.add(player);
+                    else offline.add(name);
+                }
+                if (selected.isEmpty()) throw new IllegalArgumentException("No selected target is online; a checkpoint snapshot can only be captured from a live player state.");
                 int saved = checkpoints.save(a[2], selected);
                 msg(sender, "&aSaved independent full-state snapshots for " + saved + " player(s).");
+                if (!offline.isEmpty()) msg(sender, "&eOffline members were not captured: &f" + String.join(", ", offline));
             }
             case "tp", "back" -> {
                 if (a.length != 4) {
