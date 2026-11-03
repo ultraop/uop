@@ -114,12 +114,27 @@ public final class ArmorKitService {
     public boolean removeArmor(Player player) {
         PlayerInventory current = player.getInventory();
         Inventory staging = stagedStorage(current);
+
+        // The main-hand item already occupies the selected hotbar slot. Move it
+        // through the staging inventory so it is returned exactly once.
+        int heldSlot = current.getHeldItemSlot();
+        ItemStack mainHand = staging.getItem(heldSlot);
+        staging.setItem(heldSlot, null);
+        if (mainHand != null && !mainHand.getType().isAir()
+                && !staging.addItem(mainHand.clone()).isEmpty()) return false;
+
+        ItemStack offhand = current.getItemInOffHand();
+        if (offhand != null && !offhand.getType().isAir()
+                && !staging.addItem(offhand.clone()).isEmpty()) return false;
+
         for (ItemStack oldArmor : current.getArmorContents()) {
             if (oldArmor == null || oldArmor.getType().isAir()) continue;
             if (!staging.addItem(oldArmor.clone()).isEmpty()) return false;
         }
+
         current.setStorageContents(cloneItems(staging.getContents()));
         current.setArmorContents(new ItemStack[4]);
+        current.setItemInOffHand(null);
         player.updateInventory();
         return true;
     }
@@ -157,7 +172,7 @@ public final class ArmorKitService {
         kitItems.add(sword);
         kitItems.add(pickaxe);
         kitItems.add(new ItemStack(Material.BREAD, 16));
-        kitItems.add(new ItemStack(Material.COOKED_BEEF, 16));
+        kitItems.add(new ItemStack(Material.COOKED_BEEF, level * 4));
         for (ItemStack item : kitItems) {
             if (!staging.addItem(item).isEmpty()) return false;
         }
