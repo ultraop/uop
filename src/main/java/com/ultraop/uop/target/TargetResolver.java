@@ -19,6 +19,13 @@ public final class TargetResolver {
         this.teams = teams;
     }
 
+    public static Player onlinePlayer(String name) {
+        if (name == null) return null;
+        return Bukkit.getOnlinePlayers().stream()
+                .filter(player -> player.getName().equalsIgnoreCase(name))
+                .findFirst().orElse(null);
+    }
+
     public static String clean(String expression) {
         if (expression == null) return "";
         String value = expression.trim();
@@ -65,7 +72,7 @@ public final class TargetResolver {
                     throw new IllegalArgumentException("Invalid selector '" + token + "': " + ex.getMessage());
                 }
             } else {
-                Player player = Bukkit.getPlayerExact(token);
+                Player player = onlinePlayer(token);
                 if (player != null && player.isOnline()) result.putIfAbsent(player.getUniqueId().toString(), player);
             }
         }
