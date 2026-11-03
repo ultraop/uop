@@ -9,6 +9,8 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -49,12 +51,12 @@ public final class EnchantService {
             List<ItemStack> items = select(player.getInventory(), scope);
             if (slot != null && !slot.isBlank()) {
                 items = switch (slot.toLowerCase(Locale.ROOT)) {
-                    case "mainhand" -> new ArrayList<>(List.of(safe(player.getInventory().getItemInMainHand())));
-                    case "offhand" -> new ArrayList<>(List.of(safe(player.getInventory().getItemInOffHand())));
-                    case "head", "helmet" -> new ArrayList<>(List.of(safe(player.getInventory().getHelmet())));
-                    case "chest", "chestplate" -> new ArrayList<>(List.of(safe(player.getInventory().getChestplate())));
-                    case "legs", "leggings" -> new ArrayList<>(List.of(safe(player.getInventory().getLeggings())));
-                    case "feet", "boots" -> new ArrayList<>(List.of(safe(player.getInventory().getBoots())));
+                    case "mainhand" -> Collections.singletonList(player.getInventory().getItemInMainHand());
+                    case "offhand" -> Collections.singletonList(player.getInventory().getItemInOffHand());
+                    case "head", "helmet" -> Collections.singletonList(player.getInventory().getHelmet());
+                    case "chest", "chestplate" -> Collections.singletonList(player.getInventory().getChestplate());
+                    case "legs", "leggings" -> Collections.singletonList(player.getInventory().getLeggings());
+                    case "feet", "boots" -> Collections.singletonList(player.getInventory().getBoots());
                     default -> throw new IllegalArgumentException("Unknown equipment slot: " + slot);
                 };
             }
@@ -72,29 +74,28 @@ public final class EnchantService {
         return changed;
     }
 
-    private ItemStack safe(ItemStack item) {
-        return item == null ? null : item;
-    }
-
     private List<ItemStack> select(PlayerInventory inventory, String scope) {
         List<ItemStack> result = new ArrayList<>();
         switch (scope.toLowerCase(Locale.ROOT)) {
             case "all" -> {
-                result.addAll(List.of(inventory.getStorageContents()));
-                result.addAll(List.of(inventory.getArmorContents()));
+                result.addAll(Arrays.asList(inventory.getStorageContents()));
+                result.addAll(Arrays.asList(inventory.getArmorContents()));
+                result.add(inventory.getItemInOffHand());
+            }
+            case "armor" -> result.addAll(Arrays.asList(inventory.getArmorContents()));
+            case "equipment" -> {
+                result.addAll(Arrays.asList(inventory.getArmorContents()));
                 result.add(inventory.getItemInMainHand());
                 result.add(inventory.getItemInOffHand());
             }
-            case "armor" -> result.addAll(List.of(inventory.getArmorContents()));
-            case "equipment" -> {
-                result.addAll(List.of(inventory.getArmorContents()));
+            case "hand" -> {
                 result.add(inventory.getItemInMainHand());
                 result.add(inventory.getItemInOffHand());
             }
             case "mainhand" -> result.add(inventory.getItemInMainHand());
             case "offhand" -> result.add(inventory.getItemInOffHand());
-            case "inventory" -> result.addAll(List.of(inventory.getStorageContents()));
-            default -> throw new IllegalArgumentException("Scope must be all, armor, equipment, mainhand, offhand or inventory.");
+            case "inventory" -> result.addAll(Arrays.asList(inventory.getStorageContents()));
+            default -> throw new IllegalArgumentException("Scope must be all, armor, equipment, hand, mainhand, offhand or inventory.");
         }
         return result;
     }
