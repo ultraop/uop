@@ -33,23 +33,8 @@ public final class TargetResolver {
         return value;
     }
 
-    /** Commas inside selector brackets are options, not target separators. */
     private List<String> splitExpressions(String input) {
-        List<String> parts = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        int bracketDepth = 0;
-        for (char c : input.toCharArray()) {
-            if (c == '[') bracketDepth++;
-            if (c == ']' && bracketDepth > 0) bracketDepth--;
-            if (c == ',' && bracketDepth == 0) {
-                if (!current.isEmpty()) parts.add(current.toString().trim());
-                current.setLength(0);
-            } else {
-                current.append(c);
-            }
-        }
-        if (!current.isEmpty()) parts.add(current.toString().trim());
-        return parts;
+        return TargetExpressionParser.split(input);
     }
 
     /** Resolves online players only; Team expressions expand to online roster members. */
@@ -114,7 +99,7 @@ public final class TargetResolver {
             String name = teams.displayName(teamKey);
             if (name.toLowerCase(Locale.ROOT).startsWith(prefix)) result.add("★" + name);
         }
-        for (String selector : List.of("@a", "@p", "@r", "@s")) {
+        for (String selector : List.of("@a", "@p", "@r", "@s", "@e[type=player]")) {
             if (selector.startsWith(prefix)) result.add(selector);
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
