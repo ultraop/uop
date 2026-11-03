@@ -1,0 +1,85 @@
+package com.ultraop.uop.service;
+
+import com.ultraop.uop.storage.UopStore;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+
+public final class ArmorLoadoutService {
+    private final UopStore store;
+
+    public ArmorLoadoutService(UopStore store) {
+        this.store = store;
+    }
+
+    private String key(String name) {
+        if (name == null || !name.matches("[A-Za-z0-9._-]{1,48}")) {
+            throw new IllegalArgumentException("Loadout name must be 1-48 letters, numbers, '.', '_' or '-'.");
+        }
+        return name.toLowerCase(Locale.ROOT);
+    }
+
+    public void save(String name, Player player) {
+        String base = "armor-loadouts." + key(name);
+        store.data().set(base + ".display-name", name);
+        store.data().set(base + ".storage", new ArrayList<>(java.util.Arrays.asList(player.getInventory().getStorageContents())));
+        store.data().set(base + ".armor", new ArrayList<>(java.util.Arrays.asList(player.getInventory().getArmorContents())));
+        store.data().set(base + ".offhand", player.getInventory().getItemInOffHand());
+        store.data().set(base + ".held-slot", player.getInventory().getHeldItemSlot());
+        store.save();
+    }
+
+    public List<String> list() {
+        var section = store.data().getConfigurationSection("armor-loadouts");
+        if (section == null) return List.of();
+        List<String> result = new ArrayList<>();
+        for (String child : section.getKeys(false)) result.add(section.getString(child + ".display-name", child));
+        return result;
+    }
+
+    public void delete(String name) {
+        String base = "armor-loadouts." + key(name);
+        if (!store.data().contains(base)) throw new IllegalArgumentException("Loadout not found: " + name);
+        store.data().set(base, null);
+        store.save();
+    }
+
+    public boolean give(String name, Player player) {
+        String base = "armor-loadouts." + key(name);
+        if (!store.data().contains(base)) return false;
+        List<?> storage = store.data().getList(base + ".storage", List.of());
+        List<?> armor = store.data().getList(base + ".armor", List.of());
+        ItemStack[] contents = new ItemStack[36];
+        ItemStack[] armorContents = new ItemStack[4];
+        for (int i = 0; i < Math.min(36, storage.size()); i++) contents[i] = storage.get(i) instanceof ItemStack item ? item.clone() : null;
+        for (int i = 0; i < Math.min(4, armor.size()); i++) armorContents[i] = armor.get(i) instanceof ItemStack item ? item.clone() : null;
+        player.getInventory().setStorageContents(contents);
+        player.getInventory().setArmorContents(armorContents);
+        Object offhand = store.data().get(base + ".offhand");
+        player.getInventory().setItemInOffHand(offhand instanceof ItemStack item ? item.clone() : null);
+        player.getInventory().setHeldItemSlot(Math.max(0, Math.min(8, store.data().getInt(base + ".held-slot", 0))));
+        player.updateInventory();
+        return true;
+    }
+
+    public boolean giveRandom(List<String> allowedNames, Player player) {
+        List<String> candidates = allowedNames.isEmpty() ? list() : allowedNames;
+        List<String> existing = candidates.stream().filter(this::exists).toList();
+        if (existing.isEmpty()) return false;
+        String selected = existing.get(ThreadLocalRandom.current().nextInt(existing.size()));
+        return give(selected, player);
+    }
+
+    public boolean exists(String name) {
+        try {
+            return store.data().contains("armor-loadouts." + key(name));
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
+    }
+}
