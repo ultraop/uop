@@ -28,6 +28,9 @@ public final class UopStore {
     public synchronized void reload() {
         YamlConfiguration loaded = new YamlConfiguration();
         if (file.exists()) {
+            if (file.length() == 0L) {
+                throw new IllegalStateException("UOP data file is empty. The plugin has stopped loading to protect the original file.");
+            }
             try {
                 // Use the strict loader. loadConfiguration(File) may return an empty
                 // configuration after a parse problem, which could later overwrite
@@ -38,6 +41,13 @@ public final class UopStore {
                         + ex.getMessage());
                 throw new IllegalStateException("UOP data is invalid. The plugin has stopped loading to protect it.", ex);
             }
+            if (loaded.getKeys(false).isEmpty()) {
+                throw new IllegalStateException("UOP data file contains no records. The plugin has stopped loading to protect the original file.");
+            }
+        }
+        Object schemaValue = loaded.get("schema-version");
+        if (schemaValue != null && !(schemaValue instanceof Number)) {
+            throw new IllegalStateException("UOP data schema-version is not numeric; original data was left untouched.");
         }
         if (!loaded.contains("schema-version")) loaded.set("schema-version", 1);
         int schemaVersion = loaded.getInt("schema-version", 1);
