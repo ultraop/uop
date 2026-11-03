@@ -13,9 +13,11 @@ import java.util.regex.Pattern;
 public final class TeamService {
     private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_-]{1,24}");
     private final UopStore store;
+    private final boolean defaultFriendlyFire;
 
-    public TeamService(UopStore store) {
+    public TeamService(UopStore store, boolean defaultFriendlyFire) {
         this.store = store;
+        this.defaultFriendlyFire = defaultFriendlyFire;
     }
 
     public static String key(String value) {
@@ -35,8 +37,7 @@ public final class TeamService {
         if (exists(team)) throw new IllegalArgumentException("Team already exists: " + team);
         store.data().set(base(team) + ".name", team);
         store.data().set(base(team) + ".members", new ArrayList<String>());
-        store.data().set(base(team) + ".settings.friendly-fire",
-                store.data().getBoolean("teams.friendly-fire-default", true));
+        store.data().set(base(team) + ".settings.friendly-fire", defaultFriendlyFire);
         store.save();
     }
 
