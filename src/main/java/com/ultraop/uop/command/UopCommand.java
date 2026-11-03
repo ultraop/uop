@@ -588,14 +588,16 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 hint(sender, "Select scope, target, enchantment and valid level", "/uop enchant <all|armor|equipment|mainhand|offhand|inventory> <target> <enchantment> <level>");
                 return;
             }
+            int level = integer(a[4], 1, 255, "Enchantment level");
+            enchants.validateApply(a[1], a[3], level);
             List<String> names = targets.resolveNames(sender, a[2]);
             int changed = 0, queued = 0;
             for (String name : names) {
                 Player player = Bukkit.getPlayerExact(name);
                 if (player != null && player.isOnline()) {
-                    changed += enchants.apply(List.of(player), a[1], a[3], integer(a[4], 1, 255, "Enchantment level"));
+                    changed += enchants.apply(List.of(player), a[1], a[3], level);
                 } else {
-                    pending.queueEnchant(name, a[1], a[3], integer(a[4], 1, 255, "Enchantment level"));
+                    pending.queueEnchant(name, a[1], a[3], level);
                     queued++;
                 }
             }
@@ -608,6 +610,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             List<String> names = targets.resolveNames(sender, a[2]);
             String slot = a.length == 5 ? a[3] : null;
             String enchantment = a.length == 5 ? a[4] : a[3];
+            enchants.validateRemove(a[1], slot, enchantment);
             int changed = 0, queued = 0;
             for (String name : names) {
                 Player player = Bukkit.getPlayerExact(name);
@@ -1354,7 +1357,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (a.length == 3) return targets.suggestions(a[2]);
         if (a.length == 4 && remove) {
             List<String> options = new ArrayList<>(enchantmentNames(a[3]));
-            options.addAll(matching(List.of("mainhand", "offhand", "head", "chest", "legs", "feet"), a[3]));
+            options.addAll(matching(List.of("mainhand", "offhand", "head", "helmet", "chest",
+                    "chestplate", "legs", "leggings", "feet", "boots"), a[3]));
             return options;
         }
         if (a.length == 5 && remove) return enchantmentNames(a[4]);
