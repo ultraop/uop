@@ -18,6 +18,9 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 
 public final class GameplayListener implements Listener {
     private final PlayerProfileService profiles;
@@ -62,6 +65,10 @@ public final class GameplayListener implements Listener {
             if (byEntity.getDamager() instanceof Player player) attacker = player;
             else if (byEntity.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player player) attacker = player;
         }
+        if (attacker != null && freeze.frozen(attacker)) {
+            event.setCancelled(true);
+            return;
+        }
         event.setDamage(event.getDamage() * damage.multiplier(attacker, victim));
         if (freeze.immortal(victim) && event.getFinalDamage() >= victim.getHealth() + victim.getAbsorptionAmount()) {
             event.setCancelled(true);
@@ -73,10 +80,28 @@ public final class GameplayListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onDrop(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
-        boolean droppingArmor = profiles.locked(player, "armor") && isArmor(event.getItemDrop().getItemStack());
-        if (freeze.frozen(player) || profiles.locked(player, "drop") || profiles.locked(player, "inventory") || droppingArmor) {
+        if (freeze.frozen(player) || profiles.locked(player, "drop")
+                || profiles.locked(player, "inventory") || profiles.locked(player, "armor")) {
             event.setCancelled(true);
         }
+    }
+
+
+    @EventHandler(ignoreCancelled = true)
+    public void onHotbarChange(PlayerItemHeldEvent event) {
+        Player player = event.getPlayer();
+        if (freeze.full(player) || profiles.locked(player, "inventory")) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onHandSwap(PlayerSwapHandItemsEvent event) {
+        Player player = event.getPlayer();
+        if (freeze.full(player) || profiles.locked(player, "inventory")) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onConsume(PlayerItemConsumeEvent event) {
+        if (freeze.frozen(event.getPlayer())) event.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true)
