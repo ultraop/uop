@@ -1,9 +1,9 @@
 # UOP Command Specification
 
-This is the target command tree, not a claim that all commands are already implemented.
+This reference describes the implemented command tree and identifies unavailable integrations explicitly. It is not a claim that every proposed legacy feature is complete.
 
 ## Target notation
-`<target>` = Team name, Minecraft selector or Player name. TAB order: **★ Team names**, then selectors, then online Player names. The star is display-only. Selectors: `@a`, `@p`, `@r`, `@s`, and supported filters. For player-only operations, `@e[type=player]` is the only entity selector suggested. No duplicate `everyone`/`nearby` keywords where selectors cover the target. Each argument must show a contextual hint.
+`<target>` = Team name, Minecraft selector or Player name. TAB order: **★ Team names**, then supported selectors, then online Player names. The star is display-only. Suggested selectors include `@a`, `@p`, `@r`, `@s`, and player-filtered `@e[type=player]`. Selector parsing preserves commas inside brackets; player-only resolution returns only players. No duplicate `everyone`/`nearby` keywords where selectors cover the target. Command handlers show contextual usage hints on invalid or incomplete syntax.
 
 ## Armor
 ```text
@@ -36,6 +36,7 @@ Each Player receives an independent snapshot. `tp` restores full snapshot and po
 /uop damage outgoing <target> <multiplier_0-10>
 /uop damage incoming <target> <multiplier_0-10>
 /uop damage set <attacker_target> <victim_target> <multiplier_0-10>
+/uop damage pair <attacker_target> <victim_target> <multiplier_0-10>
 /uop damage reset global
 /uop damage reset outgoing <target>
 /uop damage reset incoming <target>
@@ -56,9 +57,8 @@ Target may be Player, Team or selector. Suggest compatible enchantments, levels 
 ```text
 /uop freeze <normal|full> <target>
 /uop unfreeze <target>
-/uop freeze status <target>
 ```
-Team and Player targets accepted. Offline durable state applied on join.
+Team and Player targets accepted. Offline freeze state is stored and applied on join. `/uop freeze status` is not currently implemented; use `/uop unfreeze <target>` to clear the state.
 
 ## Immortal
 ```text
@@ -103,14 +103,12 @@ Membership persists across disconnects and same-name reconnects. Team delete doe
 /uop inv lock <inventory|armor|drop> <target>
 /uop inv unlock <inventory|armor|drop> <target>
 ```
-Team actions are per-member. Team swap requires equal roster size and deterministic pairing; validate and snapshot all members before mutation.
+Team actions are per-member. Team swap requires equal roster size and deterministic pairing; validate and snapshot all members before mutation. Inventory history stores the active recording roster and snapshots in persistent UOP data. Sampling pauses while recorded players are offline and resumes after reconnect; recording state is reloaded after plugin/server restart. `/uop inv record stop <target>` also accepts offline Player/Team names. Saves occur as part of the configured sampling cycle; live crash-recovery and long-duration performance testing are still required.
 
 ## Name / tags
 ```text
 /uop name hide <target>
 /uop name show <target>
-/uop name glitch <target> <glitch_value>
-/uop name glitch reset <target>
 /uop name tag create <tag_id> <color> <bold> <italic> <text>
 /uop name tag edit <tag_id> <color> <bold> <italic> <text>
 /uop name tag list
@@ -119,7 +117,7 @@ Team actions are per-member. Team swap requires equal roster size and determinis
 /uop name tag remove <target>
 /uop name tag delete <tag_id>
 ```
-Name glitch dependency must be identified and verified before implementation is advertised.
+Name Glitch is currently an unavailable stub: the optional dependency has not been identified or verified. The command reports that it is disabled and does not change player names.
 
 ## Protection
 ```text
@@ -137,7 +135,8 @@ Name glitch dependency must be identified and verified before implementation is 
 /uop permission check <player> <node>
 /uop permission reset <player> [node]
 /uop permission reset all
-/uop help [category]
+/uop help [group]
+/uop help unfreeze
 /uop reload
 /uop reset all
 /uop version
@@ -145,4 +144,4 @@ Name glitch dependency must be identified and verified before implementation is 
 Permission administration is OP/console-only by default.
 
 ## Contextual argument hints
-Examples: `[Saved loadout name]`, `[Checkpoint name]`, `[Team name]`, `[Player / selector]`, `[Enchantment]`, `[Enchantment level]`, `[Inventory slot 0-40]`, `[Multiplier 0-10]`. Suggestions must match the exact command position. `/uop help` displays top-level groups; `/uop help <group>` displays that group's command syntax and its group name is TAB-completable.
+Examples: `[Saved loadout name]`, `[Checkpoint name]`, `[Team name]`, `[Player / selector]`, `[Enchantment]`, `[Enchantment level]`, `[Inventory slot 0-40]`, `[Multiplier 0-10]`. Suggestions are contextual by command position, including registry-derived enchantment keys and each enchantment's maximum supported level. `/uop` and `/uop help` display the command directory; `/uop help <group>` prints nested syntax and the group is TAB-completable.
