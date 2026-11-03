@@ -137,14 +137,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
 
     private void help(CommandSender sender, String[] args) {
-        if (args.length == 1) {
+        if (args.length <= 1) {
             msg(sender, "&6UOP &f— Command Directory");
             msg(sender, "&e★ team &7— create, delete, list, info, add, remove, removeall, tp, settings");
             msg(sender, "&e★ armor &7— set, save, list, delete, give direct/saved/random, remove, weapon");
             msg(sender, "&e★ checkpoint &7— save, tp, back, list, delete, clear");
-            msg(sender, "&e★ damage &7— global, outgoing, incoming, set, reset, list");
+            msg(sender, "&e★ damage &7— global, outgoing, incoming, set/pair, reset, list");
             msg(sender, "&e★ enchant / disenchant &7— all, armor, equipment, hand, inventory");
-            msg(sender, "&e★ freeze / unfreeze / immortal &7— normal, full, on, off, status, list");
+            msg(sender, "&e★ freeze / unfreeze &7— normal/full; &eimmortal &7— on/off/status/list");
             msg(sender, "&e★ inv &7— view, set, remove, give, take, clear, swap, backups, record, back, locks");
             msg(sender, "&e★ name &7— hide, show, glitch, tag");
             msg(sender, "&e★ protect / permission &7— identity and permission management");
@@ -156,22 +156,77 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
 
         String group = args[1].toLowerCase(Locale.ROOT);
         switch (group) {
-            case "team" -> msg(sender, "&f/uop team <create|delete|list|info|add|remove|removeall|tp|settings>");
-            case "armor" -> msg(sender, "&f/uop armor <set|save|list|delete|give direct|give saved|give random|remove|weapon set>");
-            case "checkpoint" -> msg(sender, "&f/uop checkpoint <save|tp|back|list|delete|clear>");
-            case "damage" -> msg(sender, "&f/uop damage <global|outgoing|incoming|set|reset|list>");
+            case "team" -> {
+                msg(sender, "&f/uop team create <team_name>");
+                msg(sender, "&f/uop team delete|info|removeall <team_name>");
+                msg(sender, "&f/uop team add <team_name> <player|selector>...");
+                msg(sender, "&f/uop team remove <team_name> <player>");
+                msg(sender, "&f/uop team tp <team_name> <destination_player>");
+                msg(sender, "&f/uop team settings friendlyfire <team_name> <on|off>");
+                msg(sender, "&f/uop team list");
+            }
+            case "armor" -> {
+                msg(sender, "&f/uop armor set <target> <material> <plain|enchanted 1-10|max> [true|false|on|off] [weapons...]");
+                msg(sender, "&f/uop armor weapon set <target> <plain|enchanted 1-10|max> <weapons...>");
+                msg(sender, "&f/uop armor save <set_name> <player> | list | delete <set_name>");
+                msg(sender, "&f/uop armor give direct <material> enchanted <1-5> <target>");
+                msg(sender, "&f/uop armor give saved <target> <set_name>");
+                msg(sender, "&f/uop armor give random <target> <set1,set2,...|all>");
+                msg(sender, "&f/uop armor remove <target>");
+            }
+            case "checkpoint" -> {
+                msg(sender, "&f/uop checkpoint save <checkpoint_name> <target>");
+                msg(sender, "&f/uop checkpoint tp|back <checkpoint_name> <target>");
+                msg(sender, "&f/uop checkpoint list | delete <checkpoint_name> | clear all");
+            }
+            case "damage" -> {
+                msg(sender, "&f/uop damage global <0-10>");
+                msg(sender, "&f/uop damage outgoing|incoming <target> <0-10>");
+                msg(sender, "&f/uop damage set|pair <attacker_target> <victim_target> <0-10>");
+                msg(sender, "&f/uop damage reset global|all");
+                msg(sender, "&f/uop damage reset outgoing|incoming <target>");
+                msg(sender, "&f/uop damage reset pair <attacker_target> <victim_target> | list");
+            }
             case "enchant" -> msg(sender, "&f/uop enchant <all|armor|equipment|mainhand|offhand|inventory> <target> <enchantment> <level>");
-            case "disenchant" -> msg(sender, "&f/uop disenchant <all|armor|equipment|hand|inventory> <target> [slot] <enchantment>");
-            case "freeze" -> msg(sender, "&f/uop freeze <normal|full> <target> | /uop unfreeze <target>");
-            case "immortal" -> msg(sender, "&f/uop immortal <on|off|status|list> [target]");
-            case "inv" -> msg(sender, "&f/uop inv <view|set|remove|give|take|clear|swap|backup|restore|backups|backup-delete|record|back|lock|unlock>");
-            case "name" -> msg(sender, "&f/uop name <hide|show|glitch|tag>");
-            case "protect" -> msg(sender, "&f/uop protect <add|remove|list|reset>");
-            case "permission" -> msg(sender, "&f/uop permission <grant|revoke|list|check|reset>");
-            case "admin" -> msg(sender, "&f/uop <reload|reset all|version>");
+            case "disenchant" -> msg(sender, "&f/uop disenchant <all|armor|equipment|hand|inventory> <target> [mainhand|offhand|head|chest|legs|feet] <enchantment>");
+            case "freeze" -> msg(sender, "&f/uop freeze <normal|full> <target>");
+            case "unfreeze" -> msg(sender, "&f/uop unfreeze <target>");
+            case "immortal" -> {
+                msg(sender, "&f/uop immortal on|off <target>");
+                msg(sender, "&f/uop immortal status <target> | list");
+            }
+            case "inv" -> {
+                msg(sender, "&f/uop inv view|clear|backups <target>");
+                msg(sender, "&f/uop inv set <target> <slot 0-40> <item> [amount] | remove <target> <slot>");
+                msg(sender, "&f/uop inv give|take <target> <item> [amount]");
+                msg(sender, "&f/uop inv swap player <player1> <player2> | swap team <team1> <team2>");
+                msg(sender, "&f/uop inv backup|restore <target> <backup_name> | backup-delete <target> <backup_name>");
+                msg(sender, "&f/uop inv record start|stop <target> | record status | back <target> <time>");
+                msg(sender, "&f/uop inv lock|unlock <inventory|armor|drop> <target>");
+            }
+            case "name" -> {
+                msg(sender, "&f/uop name hide|show <target>");
+                msg(sender, "&f/uop name tag create|edit <id> <color|#RRGGBB> <bold> <italic> <text...>");
+                msg(sender, "&f/uop name tag list | give|change <target> <id> | remove <target> | delete <id>");
+                msg(sender, "&f/uop name glitch <target> (optional integration disabled)");
+            }
+            case "protect" -> {
+                msg(sender, "&f/uop protect add <target> [uuid|ip|both]");
+                msg(sender, "&f/uop protect remove <target> | list | reset");
+            }
+            case "permission" -> {
+                msg(sender, "&f/uop permission grant|revoke <target> <nodes...>");
+                msg(sender, "&f/uop permission list <target> | check <target> <node>");
+                msg(sender, "&f/uop permission reset <target> [node|all] | reset all");
+            }
+            case "admin" -> {
+                msg(sender, "&f/uop reload");
+                msg(sender, "&f/uop reset all");
+                msg(sender, "&f/uop version");
+            }
             default -> {
                 msg(sender, "&cUnknown help group: " + group);
-                msg(sender, "&7Available: team, armor, checkpoint, damage, enchant, disenchant, freeze, immortal, inv, name, protect, permission, admin");
+                msg(sender, "&7Available: team, armor, checkpoint, damage, enchant, disenchant, freeze, unfreeze, immortal, inv, name, protect, permission, admin");
             }
         }
     }
@@ -341,6 +396,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 return;
             }
             int level = integer(a[5], 1, 5, "Enchantment preset level");
+            if (!kits.materials().contains(a[3].toLowerCase(Locale.ROOT))) {
+                throw new IllegalArgumentException("Material must be iron, gold, diamond, netherite or mixed.");
+            }
             List<String> names = targets.resolveNames(sender, a[6]);
             int success = 0, queued = 0;
             List<String> skipped = new ArrayList<>();
@@ -533,14 +591,16 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 hint(sender, "Select scope, target, enchantment and valid level", "/uop enchant <all|armor|equipment|mainhand|offhand|inventory> <target> <enchantment> <level>");
                 return;
             }
+            int level = integer(a[4], 1, 255, "Enchantment level");
+            enchants.validateApply(a[1], a[3], level);
             List<String> names = targets.resolveNames(sender, a[2]);
             int changed = 0, queued = 0;
             for (String name : names) {
                 Player player = Bukkit.getPlayerExact(name);
                 if (player != null && player.isOnline()) {
-                    changed += enchants.apply(List.of(player), a[1], a[3], integer(a[4], 1, 255, "Enchantment level"));
+                    changed += enchants.apply(List.of(player), a[1], a[3], level);
                 } else {
-                    pending.queueEnchant(name, a[1], a[3], integer(a[4], 1, 255, "Enchantment level"));
+                    pending.queueEnchant(name, a[1], a[3], level);
                     queued++;
                 }
             }
@@ -553,6 +613,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             List<String> names = targets.resolveNames(sender, a[2]);
             String slot = a.length == 5 ? a[3] : null;
             String enchantment = a.length == 5 ? a[4] : a[3];
+            enchants.validateRemove(a[1], slot, enchantment);
             int changed = 0, queued = 0;
             for (String name : names) {
                 Player player = Bukkit.getPlayerExact(name);
@@ -818,11 +879,16 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                             "/uop inv record <start|stop> <target> | /uop inv record status");
                     return;
                 }
-                List<Player> selected = targets.resolve(sender, a[3]);
-                if (a[2].equalsIgnoreCase("start")) inventory.startRecord(selected);
-                else inventory.stopRecord(selected);
-                msg(sender, "&aInventory history recording " + (a[2].equalsIgnoreCase("start") ? "started" : "stopped")
-                        + " for " + selected.size() + " player(s).");
+                if (a[2].equalsIgnoreCase("start")) {
+                    List<Player> selected = targets.resolve(sender, a[3]);
+                    int started = inventory.startRecord(selected);
+                    msg(sender, "&aInventory history recording started for " + started + " of "
+                            + selected.size() + " selected online player(s).");
+                } else {
+                    List<String> selected = targets.resolveNames(sender, a[3]);
+                    inventory.stopRecordNames(selected);
+                    msg(sender, "&aInventory history recording stopped for " + selected.size() + " profile(s).");
+                }
             }
             case "back" -> {
                 if (a.length != 4) {
@@ -1082,7 +1148,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             if (a.length == 1) return matching(ROOTS, a[0]);
             String root = a[0].toLowerCase(Locale.ROOT);
             if (root.equals("help") && a.length == 2) return matching(List.of("team", "armor", "checkpoint", "damage",
-                    "enchant", "disenchant", "freeze", "immortal", "inv", "name", "protect", "permission", "admin"), a[1]);
+                    "enchant", "disenchant", "freeze", "unfreeze", "immortal", "inv", "name", "protect", "permission", "admin"), a[1]);
             if (root.equals("team")) return teamTabs(a);
             if (root.equals("armor")) return armorTabs(a);
             if (root.equals("checkpoint")) return checkpointTabs(a);
@@ -1096,7 +1162,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             if (root.equals("unfreeze") && a.length == 2) return targets.suggestions(a[1]);
             if (root.equals("immortal")) {
                 if (a.length == 2) return matching(List.of("on", "off", "status", "list"), a[1]);
-                if (a.length == 3) return targets.suggestions(a[2]);
+                if (a.length == 3 && List.of("on", "off", "status").contains(a[1].toLowerCase(Locale.ROOT))) {
+                    return targets.suggestions(a[2]);
+                }
             }
             if (root.equals("inv")) return inventoryTabs(sender, a);
             if (root.equals("name")) return nameTabs(a);
@@ -1192,12 +1260,15 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         }
         if (a.length >= 4 && List.of("grant", "revoke").contains(a[1])) {
             return matching(List.of("uop.*", "uop.armor", "uop.checkpoint", "uop.damage", "uop.enchant",
-                    "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name", "uop.protect", "all"), a[a.length - 1]);
+                    "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name", "uop.protect",
+                    "uop.permission", "uop.admin", "all"), a[a.length - 1]);
         }
         if (a.length == 4 && a[1].equals("check")) return matching(List.of("uop.*", "uop.armor", "uop.checkpoint",
                 "uop.damage", "uop.enchant", "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name",
                 "uop.protect", "uop.permission", "uop.admin"), a[3]);
-        if (a.length == 4 && a[1].equals("reset")) return matching(List.of("all", "uop.*", "uop.armor", "uop.freeze", "uop.inv"), a[3]);
+        if (a.length == 4 && a[1].equals("reset")) return matching(List.of("all", "uop.*", "uop.armor",
+                "uop.checkpoint", "uop.damage", "uop.enchant", "uop.freeze", "uop.immortal", "uop.team",
+                "uop.inv", "uop.name", "uop.protect", "uop.permission", "uop.admin"), a[3]);
         return List.of();
     }
 
@@ -1226,16 +1297,18 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             return matching(List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), a[5]);
         }
         if (a.length == 6 && a[1].equals("set") && !a[4].equals("enchanted")) {
-            return matching(List.of("true", "false"), a[5]);
+            return matching(List.of("true", "false", "on", "off"), a[5]);
         }
         if (a.length == 7 && a[1].equals("set") && a[4].equals("enchanted")) {
-            return matching(List.of("true", "false"), a[6]);
+            return matching(List.of("true", "false", "on", "off"), a[6]);
         }
-        if (a.length == 7 && a[1].equals("set") && !a[4].equals("enchanted") && a[5].equals("true")) {
-            return matching(kits.weaponNames(), a[6]);
+        if (a.length >= 7 && a[1].equals("set") && !a[4].equals("enchanted")
+                && List.of("true", "on").contains(a[5].toLowerCase(Locale.ROOT))) {
+            return matching(kits.weaponNames(), a[a.length - 1]);
         }
-        if (a.length == 8 && a[1].equals("set") && a[4].equals("enchanted") && a[6].equals("true")) {
-            return matching(kits.weaponNames(), a[7]);
+        if (a.length >= 8 && a[1].equals("set") && a[4].equals("enchanted")
+                && List.of("true", "on").contains(a[6].toLowerCase(Locale.ROOT))) {
+            return matching(kits.weaponNames(), a[a.length - 1]);
         }
         if (a.length == 3 && a[1].equals("weapon")) return matching(List.of("set"), a[2]);
         if (a.length == 4 && a[1].equals("weapon") && a[2].equals("set")) return targets.suggestions(a[3]);
@@ -1243,11 +1316,11 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (a.length == 6 && a[1].equals("weapon") && a[2].equals("set") && a[4].equals("enchanted")) {
             return matching(List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), a[5]);
         }
-        if (a.length == 6 && a[1].equals("weapon") && a[2].equals("set") && !a[4].equals("enchanted")) {
-            return matching(kits.weaponNames(), a[5]);
+        if (a.length >= 6 && a[1].equals("weapon") && a[2].equals("set") && !a[4].equals("enchanted")) {
+            return matching(kits.weaponNames(), a[a.length - 1]);
         }
-        if (a.length == 7 && a[1].equals("weapon") && a[2].equals("set") && a[4].equals("enchanted")) {
-            return matching(kits.weaponNames(), a[6]);
+        if (a.length >= 7 && a[1].equals("weapon") && a[2].equals("set") && a[4].equals("enchanted")) {
+            return matching(kits.weaponNames(), a[a.length - 1]);
         }
         if (a.length == 4 && a[1].equals("save")) return playerNamesAndSingleSelectors(a[3]);
         if (a.length == 4 && a[1].equals("give") && a[2].equals("direct")) return matching(kits.materials(), a[3]);
@@ -1291,10 +1364,37 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 ? List.of("all", "armor", "equipment", "hand", "inventory")
                 : List.of("all", "armor", "equipment", "mainhand", "offhand", "inventory"), a[1]);
         if (a.length == 3) return targets.suggestions(a[2]);
-        if (a.length == 4 && remove) return matching(List.of("mending", "unbreaking", "protection", "sharpness", "efficiency", "fortune"), a[3]);
-        if (a.length == 4) return matching(List.of("mending", "unbreaking", "protection", "sharpness", "efficiency", "fortune", "feather_falling", "thorns", "respiration"), a[3]);
-        if (a.length == 5 && !remove) return matching(List.of("1", "2", "3", "4", "5"), a[4]);
+        if (a.length == 4 && remove) {
+            List<String> options = new ArrayList<>(enchantmentNames(a[3]));
+            options.addAll(matching(List.of("mainhand", "offhand", "head", "helmet", "chest",
+                    "chestplate", "legs", "leggings", "feet", "boots"), a[3]));
+            return options;
+        }
+        if (a.length == 5 && remove) return enchantmentNames(a[4]);
+        if (a.length == 4) return enchantmentNames(a[3]);
+        if (a.length == 5) return enchantmentLevels(a[3], a[4]);
         return List.of();
+    }
+
+    private List<String> enchantmentNames(String partial) {
+        List<String> values = new ArrayList<>();
+        for (org.bukkit.enchantments.Enchantment enchantment : org.bukkit.Registry.ENCHANTMENT) {
+            org.bukkit.NamespacedKey key = enchantment.getKey();
+            values.add(key.getNamespace().equals("minecraft") ? key.getKey() : key.toString());
+        }
+        values.sort(String.CASE_INSENSITIVE_ORDER);
+        return matching(values, partial);
+    }
+
+    private List<String> enchantmentLevels(String enchantmentName, String partial) {
+        try {
+            int max = enchants.resolve(enchantmentName).getMaxLevel();
+            List<String> levels = new ArrayList<>();
+            for (int level = 1; level <= max; level++) levels.add(Integer.toString(level));
+            return matching(levels, partial);
+        } catch (IllegalArgumentException ignored) {
+            return List.of();
+        }
     }
 
     private List<String> teamNames(String partial) {

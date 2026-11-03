@@ -84,9 +84,18 @@ public final class UopPlugin extends JavaPlugin {
     }
 
     public void reloadUop() {
+        // Persist the active in-memory state before re-reading configuration/data.
         store.save();
         reloadConfig();
         store.reload();
+
+        teams.defaultFriendlyFire(getConfig().getBoolean("teams.friendly-fire-default", true));
+
+        if (historyTask != -1) Bukkit.getScheduler().cancelTask(historyTask);
+        long sampleTicks = Math.max(1L, getConfig().getLong("history.sample-ticks", 100L));
+        historyTask = Bukkit.getScheduler()
+                .runTaskTimer(this, inventory::tickHistory, sampleTicks, sampleTicks).getTaskId();
+
         names.refreshAll();
     }
 

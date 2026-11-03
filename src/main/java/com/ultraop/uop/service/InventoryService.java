@@ -28,11 +28,25 @@ public final class InventoryService {
     private final TeamService teams;
     private final Set<String> recording = new HashSet<>();
     private final Map<String, String> lastFingerprints = new HashMap<>();
+    private boolean persistencePending;
 
     public InventoryService(JavaPlugin plugin, UopStore store, TeamService teams) {
         this.plugin = plugin;
         this.store = store;
         this.teams = teams;
+        for (String name : store.data().getStringList("inventory-recording.active")) {
+            if (name != null && name.matches("[A-Za-z0-9_]{1,16}")) {
+                recording.add(name.toLowerCase(Locale.ROOT));
+            }
+        }
+    }
+
+    private void persistRecordingState() {
+        if (recording.isEmpty()) {
+            store.data().set("inventory-recording.active", null);
+        } else {
+            store.data().set("inventory-recording.active", recording.stream().sorted().toList());
+        }
     }
 
     private String playerPath(String playerName) {
@@ -225,23 +239,61 @@ public final class InventoryService {
         return result;
     }
 
-    public void startRecord(List<Player> players) {
+    public int startRecord(List<Player> players) {
+        int started = 0;
+        List<String> failed = new ArrayList<>();
         for (Player player : players) {
             String name = player.getName();
-            recording.add(name.toLowerCase(Locale.ROOT));
-            String history = playerPath(name) + ".history";
-            if (!store.data().contains(history)) store.data().set(history, new ArrayList<>());
-            record(player, true);
+            String key = name.toLowerCase(Locale.ROOT);
+            recording.add(key);
+            try {
+                String history = playerPath(name) + ".history";
+                if (!store.data().contains(history)) store.data().set(history, new ArrayList<>());
+                record(player, true);
+                started++;
+            } catch (RuntimeException ex) {
+                recording.remove(key);
+                lastFingerprints.remove(key);
+                failed.add(name);
+                plugin.getLogger().warning("Could not start inventory history for " + name
+                        + "; other selected players will continue: " + ex.getMessage());
+            }
         }
-        store.save();
+        persistRecordingState();
+        saveStoreSafely("inventory recording start");
+        if (!failed.isEmpty()) {
+            plugin.getLogger().warning("Inventory history did not start for: " + String.join(", ", failed));
+        }
+        return started;
     }
 
     public void stopRecord(List<Player> players) {
-        for (Player player : players) {
-            recording.remove(player.getName().toLowerCase(Locale.ROOT));
-            lastFingerprints.remove(player.getName().toLowerCase(Locale.ROOT));
+        stopRecordNames(players.stream().map(Player::getName).toList());
+    }
+
+    public void stopRecordNames(List<String> playerNames) {
+        for (String name : playerNames) {
+            String key = name.toLowerCase(Locale.ROOT);
+            recording.remove(key);
+            lastFingerprints.remove(key);
         }
-        store.save();
+        persistRecordingState();
+        saveStoreSafely("inventory recording stop");
+    }
+
+    private void saveStoreSafely(String context) {
+        boolean wasPending = persistencePending;
+        try {
+            store.save();
+            persistencePending = false;
+            if (wasPending) plugin.getLogger().info("UOP data persistence recovered; pending inventory history is saved.");
+        } catch (RuntimeException ex) {
+            persistencePending = true;
+            if (!wasPending) {
+                plugin.getLogger().severe("Could not save UOP data during " + context
+                        + "; the sampler will retry automatically: " + ex.getMessage());
+            }
+        }
     }
 
     public List<String> recordingNames() {
@@ -249,22 +301,33 @@ public final class InventoryService {
     }
 
     public void tickHistory() {
+        boolean changed = persistencePending;
         for (String name : new ArrayList<>(recording)) {
             Player player = plugin.getServer().getOnlinePlayers().stream()
                     .filter(candidate -> candidate.getName().equalsIgnoreCase(name))
                     .findFirst().orElse(null);
-            if (player != null && player.isOnline()) record(player, false);
-            else {
-                recording.remove(name);
+            if (player != null && player.isOnline()) {
+                try {
+                    changed |= record(player, false);
+                } catch (RuntimeException ex) {
+                    // A bad sample must not cancel the repeating scheduler task or stop
+                    // the recording session. Keep the prior history and retry next cycle.
+                    plugin.getLogger().warning("Inventory history sample failed for " + name
+                            + "; recording remains active and will retry: " + ex.getMessage());
+                }
+            } else {
+                // Keep the recording active while the player is offline. The next sample
+                // after reconnect establishes a fresh baseline instead of silently stopping.
                 lastFingerprints.remove(name);
             }
         }
+        if (changed || persistencePending) saveStoreSafely("inventory history sampling");
     }
 
-    private void record(Player player, boolean force) {
+    private boolean record(Player player, boolean force) {
         String fingerprint = fingerprint(player);
         String playerKey = player.getName().toLowerCase(Locale.ROOT);
-        if (!force && fingerprint.equals(lastFingerprints.get(playerKey))) return;
+        if (!force && fingerprint.equals(lastFingerprints.get(playerKey))) return false;
 
         String historyPath = playerPath(player.getName()) + ".history";
         List<Map<String, Object>> history = new ArrayList<>();
@@ -287,7 +350,7 @@ public final class InventoryService {
         while (history.size() > max) history.remove(0);
         store.data().set(historyPath, history);
         lastFingerprints.put(playerKey, fingerprint);
-        if (history.size() == 1 || history.size() % 10 == 0) store.save();
+        return true;
     }
 
     public boolean back(Player player, String timeExpression) {
