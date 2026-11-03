@@ -24,7 +24,32 @@ public final class EnchantService {
         return enchantment;
     }
 
+    public void validateApply(String scope, String enchantmentName, int level) {
+        String normalized = scope == null ? "" : scope.toLowerCase(Locale.ROOT);
+        if (!List.of("all", "armor", "equipment", "mainhand", "offhand", "inventory").contains(normalized)) {
+            throw new IllegalArgumentException("Scope must be all, armor, equipment, mainhand, offhand or inventory.");
+        }
+        Enchantment enchantment = resolve(enchantmentName);
+        if (level < 1 || level > enchantment.getMaxLevel()) {
+            throw new IllegalArgumentException("Level must be 1-" + enchantment.getMaxLevel() + " for " + enchantmentName + ".");
+        }
+    }
+
+    public void validateRemove(String scope, String slot, String enchantmentName) {
+        String normalized = scope == null ? "" : scope.toLowerCase(Locale.ROOT);
+        if (!List.of("all", "armor", "equipment", "hand", "inventory").contains(normalized)) {
+            throw new IllegalArgumentException("Scope must be all, armor, equipment, hand or inventory.");
+        }
+        if (slot != null && !slot.isBlank()
+                && !List.of("mainhand", "offhand", "head", "helmet", "chest", "chestplate",
+                "legs", "leggings", "feet", "boots").contains(slot.toLowerCase(Locale.ROOT))) {
+            throw new IllegalArgumentException("Unknown equipment slot: " + slot);
+        }
+        resolve(enchantmentName);
+    }
+
     public int apply(List<Player> players, String scope, String enchantmentName, int level) {
+        validateApply(scope, enchantmentName, level);
         Enchantment enchantment = resolve(enchantmentName);
         if (level < 1 || level > enchantment.getMaxLevel()) {
             throw new IllegalArgumentException("Level must be 1-" + enchantment.getMaxLevel() + " for " + enchantmentName + ".");
@@ -45,6 +70,7 @@ public final class EnchantService {
     }
 
     public int remove(List<Player> players, String scope, String slot, String enchantmentName) {
+        validateRemove(scope, slot, enchantmentName);
         Enchantment enchantment = resolve(enchantmentName);
         int changed = 0;
         for (Player player : players) {
