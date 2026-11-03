@@ -152,22 +152,27 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     private void armor(CommandSender sender, String[] a) {
         require(sender, "uop.armor");
         if (a.length < 2) {
-            hint(sender, "Select armor action", "/uop armor <give|save|list|delete>");
+            hint(sender, "Choose armor operation",
+                    "/uop armor <set|save|list|delete|give|remove|weapon>");
             return;
         }
         switch (a[1].toLowerCase(Locale.ROOT)) {
-            case "list" -> msg(sender, "&fSaved loadouts: &e" + String.join(", ", loadouts.list()));
+            case "set" -> armorSet(sender, a);
             case "save" -> {
                 if (a.length != 4) {
-                    hint(sender, "Enter a loadout name, then one player", "/uop armor save <set_name> <player>");
+                    hint(sender, "Enter a loadout name, then one Player",
+                            "/uop armor save <set_name> <player>");
                     return;
                 }
-                if (teams.exists(TargetResolver.clean(a[3]))) throw new IllegalArgumentException("Saving a loadout requires a single Player, not a Team.");
+                if (teams.exists(TargetResolver.clean(a[3]))) {
+                    throw new IllegalArgumentException("Saving a loadout requires exactly one Player, not a Team.");
+                }
                 List<Player> selected = targets.resolve(sender, a[3]);
-                if (selected.size() != 1) throw new IllegalArgumentException("Saving a loadout requires exactly one player.");
+                if (selected.size() != 1) throw new IllegalArgumentException("Saving a loadout requires exactly one Player.");
                 loadouts.save(a[2], selected.get(0));
                 msg(sender, "&aSaved complete armor + inventory loadout: &f" + a[2]);
             }
+            case "list" -> msg(sender, "&fSaved loadouts: &e" + String.join(", ", loadouts.list()));
             case "delete" -> {
                 if (a.length != 3) {
                     hint(sender, "Select a saved loadout", "/uop armor delete <set_name>");
@@ -177,10 +182,123 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 msg(sender, "&aDeleted loadout: &f" + a[2]);
             }
             case "give" -> armorGive(sender, a);
-            default -> {
-                hint(sender, "Select an armor action", "/uop armor <give|save|list|delete>");
+            case "remove" -> armorRemove(sender, a);
+            case "weapon" -> armorWeapon(sender, a);
+            default -> hint(sender, "Choose armor operation",
+                    "/uop armor <set|save|list|delete|give|remove|weapon>");
+        }
+    }
+
+    private record ArmorMode(String value, int nextIndex) {}
+
+    private ArmorMode parseArmorMode(String[] args, int index) {
+        if (args.length <= index) throw new IllegalArgumentException("Armor mode is required. [plain|enchanted 1-10|max]");
+        String mode = args[index].toLowerCase(Locale.ROOT);
+        if (mode.equals("plain") || mode.equals("max")) return new ArmorMode(mode, index + 1);
+        if (mode.equals("enchanted")) {
+            if (args.length <= index + 1) throw new IllegalArgumentException("Enchantment level is required. [1-10]");
+            int level = integer(args[index + 1], 1, 10, "Armor enchantment level");
+            return new ArmorMode("enchanted " + level, index + 2);
+        }
+        throw new IllegalArgumentException("Armor mode must be plain, enchanted 1-10, or max.");
+    }
+
+    private void armorSet(CommandSender sender, String[] a) {
+        if (a.length < 5) {
+            hint(sender, "Select target, material, armor mode and optional weapon setting",
+                    "/uop armor set <target> <material> <plain|enchanted 1-10|max> [true|false] [weapons...]");
+            return;
+        }
+        ArmorMode mode = parseArmorMode(a, 4);
+        boolean includeWeapons = false;
+        List<String> weapons = List.of();
+        if (a.length > mode.nextIndex()) {
+            String flag = a[mode.nextIndex()];
+            if (!flag.equalsIgnoreCase("true") && !flag.equalsIgnoreCase("false")
+                    && !flag.equalsIgnoreCase("on") && !flag.equalsIgnoreCase("off")) {
+                throw new IllegalArgumentException("Weapon option must be true or false before weapon names.");
+            }
+            includeWeapons = bool(flag);
+            if (includeWeapons) {
+                if (a.length <= mode.nextIndex() + 1) {
+                    throw new IllegalArgumentException("weapon_on is true; add at least one weapon/tool.");
+                }
+                weapons = Arrays.asList(a).subList(mode.nextIndex() + 1, a.length);
+            } else if (a.length != mode.nextIndex() + 1) {
+                throw new IllegalArgumentException("Do not add weapon names when weapon_on is false.");
             }
         }
+        kits.validateSetArgs(a[3], mode.value(), includeWeapons, weapons);
+        List<String> selectedNames = targets.resolveNames(sender, a[2]);
+        int applied = 0, queued = 0;
+        List<String> noSpace = new ArrayList<>();
+        for (String name : selectedNames) {
+            Player player = Bukkit.getPlayerExact(name);
+            if (player != null && player.isOnline()) {
+                if (kits.setArmor(player, a[3], mode.value(), includeWeapons, weapons)) applied++;
+                else noSpace.add(name);
+            } else {
+                pending.queueArmorSet(name, a[3], mode.value(), includeWeapons, weapons);
+                queued++;
+            }
+        }
+        msg(sender, "&aArmor set applied to " + applied + " online player(s); queued for " + queued + " offline profile(s).");
+        if (!noSpace.isEmpty()) msg(sender, "&eNot enough inventory space; left unchanged: &f" + String.join(", ", noSpace));
+    }
+
+    private void armorWeapon(CommandSender sender, String[] a) {
+        if (a.length < 3 || !a[2].equalsIgnoreCase("set")) {
+            hint(sender, "Choose weapon operation", "/uop armor weapon set <target> <mode> <weapons...>");
+            return;
+        }
+        if (a.length < 6) {
+            hint(sender, "Select target, mode, then one or more weapons/tools",
+                    "/uop armor weapon set <target> <plain|enchanted 1-10|max> <weapons...>");
+            return;
+        }
+        ArmorMode mode = parseArmorMode(a, 4);
+        if (a.length <= mode.nextIndex()) {
+            throw new IllegalArgumentException("Select at least one weapon/tool after the armor mode.");
+        }
+        List<String> weapons = Arrays.asList(a).subList(mode.nextIndex(), a.length);
+        kits.validateWeaponArgs(mode.value(), weapons);
+        List<String> selectedNames = targets.resolveNames(sender, a[3]);
+        int applied = 0, queued = 0;
+        List<String> noSpace = new ArrayList<>();
+        for (String name : selectedNames) {
+            Player player = Bukkit.getPlayerExact(name);
+            if (player != null && player.isOnline()) {
+                if (kits.giveWeapons(player, mode.value(), weapons)) applied++;
+                else noSpace.add(name);
+            } else {
+                pending.queueWeaponSet(name, mode.value(), weapons);
+                queued++;
+            }
+        }
+        msg(sender, "&aWeapon set applied to " + applied + " online player(s); queued for " + queued + " offline profile(s).");
+        if (!noSpace.isEmpty()) msg(sender, "&eNot enough inventory space; left unchanged: &f" + String.join(", ", noSpace));
+    }
+
+    private void armorRemove(CommandSender sender, String[] a) {
+        if (a.length != 3) {
+            hint(sender, "Select ★ Team / Player / selector", "/uop armor remove <target>");
+            return;
+        }
+        List<String> selectedNames = targets.resolveNames(sender, a[2]);
+        int removed = 0, queued = 0;
+        List<String> noSpace = new ArrayList<>();
+        for (String name : selectedNames) {
+            Player player = Bukkit.getPlayerExact(name);
+            if (player != null && player.isOnline()) {
+                if (kits.removeArmor(player)) removed++;
+                else noSpace.add(name);
+            } else {
+                pending.queueArmorRemove(name);
+                queued++;
+            }
+        }
+        msg(sender, "&aArmor removed for " + removed + " online player(s); queued for " + queued + " offline profile(s).");
+        if (!noSpace.isEmpty()) msg(sender, "&eInventory is full; armor left unchanged: &f" + String.join(", ", noSpace));
     }
 
     private void armorGive(CommandSender sender, String[] a) {
