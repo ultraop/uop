@@ -7,15 +7,17 @@ This is the target command tree, not a claim that all commands are already imple
 
 ## Armor
 ```text
+/uop armor set <target> <leather|chainmail|iron|gold|diamond|netherite> <plain|enchanted <1-10>|max> [true|false] [weapons...]
+/uop armor weapon set <target> <plain|enchanted <1-10>|max> <weapons...>
 /uop armor save <set_name> <player>
 /uop armor list
 /uop armor delete <set_name>
-/uop armor set <target> <material> <plain|enchanted <1-10>|max> [weapon_on|off] [weapons...]
-/uop armor give direct <material> enchanted <level_1-5> <target>
+/uop armor give direct <iron|gold|diamond|netherite|mixed> enchanted <level_1-5> <target>
 /uop armor give saved <target> <set_name>
 /uop armor give random <target> <set_name1,set_name2,...|all>
+/uop armor remove <target>
 ```
-`give` options are ordered: `direct` first (top-priority), then `saved`, then `random`. Direct kit material: `iron|gold|diamond|netherite|mixed`. Level: `1|2|3|4|5`. Target suggestions: ★ Teams, selectors, player names. Kit contents: helmet, chestplate, leggings, boots, sword, pickaxe, bread, steak. Level 1 is Mending-only; levels 2–4 use centrally defined progressive compatible enchantment groups; level 5 is the maximum compatible preset. Saved/random distribution applies per recipient; random mode selects a saved preset independently per recipient. Food amounts require explicit configuration, not guessed values.
+`give` options are ordered: `direct` first (top-priority), then `saved`, then `random`. Legacy armor-set materials: `leather|chainmail|iron|gold|diamond|netherite`. Direct kit material: `iron|gold|diamond|netherite|mixed`. Legacy weapon/tool options: `sword|mace|axe|bow|crossbow|trident|pickaxe|shovel|hoe`. Level: `1|2|3|4|5`. Target suggestions: ★ Teams, selectors, player names. Kit contents: helmet, chestplate, leggings, boots, sword, pickaxe, bread, steak. Level 1 is Mending-only; levels 2–4 use centrally defined progressive compatible enchantment groups; level 5 is the maximum compatible preset. Saved/random distribution applies per recipient; random mode selects a saved preset independently per recipient. The implemented direct kit currently supplies 16 bread and 16 steak (cooked beef); this quantity remains a configurable tuning point. Classic armor replacement and weapon insertion stage changes first and abort without dropping items if inventory capacity is insufficient.
 
 ## Checkpoint
 ```text
