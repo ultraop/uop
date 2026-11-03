@@ -96,6 +96,11 @@ public final class CheckpointService {
         store.save();
     }
 
+    public boolean hasSnapshot(String name, String playerName) {
+        String checkpoint = key(name);
+        return store.data().contains("checkpoints." + checkpoint + ".players." + playerName.toLowerCase() + ".world");
+    }
+
     public int restore(String name, List<Player> players) {
         String checkpoint = key(name);
         if (!store.data().contains("checkpoints." + checkpoint)) throw new IllegalArgumentException("Checkpoint not found: " + name);
