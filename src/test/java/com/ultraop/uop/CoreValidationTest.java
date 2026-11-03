@@ -65,6 +65,32 @@ class CoreValidationTest {
     }
 
     @Test
+    void armorSetArgumentsValidateMaterialModeAndWeaponSetBeforeMutation() {
+        ArmorKitService kits = new ArmorKitService();
+        assertDoesNotThrow(() -> kits.validateSetArgs("diamond", "enchanted 3", true,
+                List.of("sword", "pickaxe")));
+        assertDoesNotThrow(() -> kits.validateSetArgs("netherite", "max", false, List.of()));
+        assertThrows(IllegalArgumentException.class,
+                () -> kits.validateSetArgs("invalid", "plain", false, List.of()));
+        assertThrows(IllegalArgumentException.class,
+                () -> kits.validateSetArgs("iron", "enchanted 11", false, List.of()));
+        assertThrows(IllegalArgumentException.class,
+                () -> kits.validateSetArgs("iron", "plain", true, List.of("invalid-tool")));
+        assertThrows(IllegalArgumentException.class,
+                () -> kits.validateSetArgs("iron", "plain", false, List.of("sword")));
+    }
+
+    @Test
+    void weaponSetArgumentsRejectEmptyAndUnknownSelections() {
+        ArmorKitService kits = new ArmorKitService();
+        assertDoesNotThrow(() -> kits.validateWeaponArgs("enchanted 5", List.of("mace", "trident")));
+        assertThrows(IllegalArgumentException.class,
+                () -> kits.validateWeaponArgs("plain", List.of()));
+        assertThrows(IllegalArgumentException.class,
+                () -> kits.validateWeaponArgs("plain", List.of("magic-staff")));
+    }
+
+    @Test
     void inventorySlotAndAmountBoundsAreEnforced() {
         assertEquals(40, InventoryService.validateSlot(40));
         assertThrows(IllegalArgumentException.class, () -> InventoryService.validateSlot(-1));
