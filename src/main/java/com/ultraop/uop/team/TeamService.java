@@ -5,7 +5,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -43,9 +42,7 @@ public final class TeamService {
 
     public void delete(String team) {
         requireTeam(team);
-        for (String member : members(team)) {
-            store.data().set("players." + key(member) + ".team", null);
-        }
+        for (String member : members(team)) store.data().set("players." + key(member) + ".team", null);
         store.data().set(base(team), null);
         store.save();
     }
@@ -75,35 +72,29 @@ public final class TeamService {
     }
 
     public void add(String team, String playerName) {
-        requireTeam(team);
-        validatePlayerName(playerName);
-        String currentTeam = teamOf(playerName);
-        if (currentTeam != null && !key(currentTeam).equals(key(team))) {
-            throw new IllegalArgumentException(playerName + " is already in team " + currentTeam
-                    + ". Remove or move the member first.");
-        }
-        List<String> names = members(team);
-        boolean alreadyPresent = names.stream().anyMatch(n -> key(n).equals(key(playerName)));
-        if (!alreadyPresent) names.add(playerName);
-        store.data().set(base(team) + ".members", names);
-        store.data().set("players." + key(playerName) + ".team", displayName(team));
-        store.data().set("players." + key(playerName) + ".last-name", playerName);
-        Player online = Bukkit.getPlayerExact(playerName);
-        if (online != null) store.data().set("players." + key(playerName) + ".last-uuid", online.getUniqueId().toString());
-        store.save();
+        addAll(team, List.of(playerName));
     }
 
     public void addAll(String team, List<String> playerNames) {
         requireTeam(team);
-        for (String playerName : playerNames) validatePlayerName(playerName);
-        // Validate the entire request before changing any member.
         for (String playerName : playerNames) {
+            validatePlayerName(playerName);
             String currentTeam = teamOf(playerName);
             if (currentTeam != null && !key(currentTeam).equals(key(team))) {
-                throw new IllegalArgumentException(playerName + " is already in team " + currentTeam);
+                throw new IllegalArgumentException(playerName + " is already in team " + currentTeam + ". Remove or move the member first.");
             }
         }
-        for (String playerName : playerNames) add(team, playerName);
+        List<String> updated = members(team);
+        for (String playerName : playerNames) {
+            if (updated.stream().noneMatch(n -> key(n).equals(key(playerName)))) updated.add(playerName);
+            String profile = "players." + key(playerName);
+            store.data().set(profile + ".team", displayName(team));
+            store.data().set(profile + ".last-name", playerName);
+            Player online = Bukkit.getPlayerExact(playerName);
+            if (online != null) store.data().set(profile + ".last-uuid", online.getUniqueId().toString());
+        }
+        store.data().set(base(team) + ".members", updated);
+        store.save();
     }
 
     public void remove(String team, String playerName) {
@@ -111,17 +102,13 @@ public final class TeamService {
         List<String> names = members(team);
         names.removeIf(n -> key(n).equals(key(playerName)));
         store.data().set(base(team) + ".members", names);
-        if (key(team).equals(key(teamOf(playerName)))) {
-            store.data().set("players." + key(playerName) + ".team", null);
-        }
+        if (key(team).equals(key(teamOf(playerName)))) store.data().set("players." + key(playerName) + ".team", null);
         store.save();
     }
 
     public void removeAll(String team) {
         requireTeam(team);
-        for (String member : members(team)) {
-            store.data().set("players." + key(member) + ".team", null);
-        }
+        for (String member : members(team)) store.data().set("players." + key(member) + ".team", null);
         store.data().set(base(team) + ".members", new ArrayList<String>());
         store.save();
     }
@@ -151,14 +138,10 @@ public final class TeamService {
     }
 
     public static void validateTeamName(String name) {
-        if (name == null || !NAME.matcher(name).matches()) {
-            throw new IllegalArgumentException("Team name must be 1-24 letters, numbers, '_' or '-'.");
-        }
+        if (name == null || !NAME.matcher(name).matches()) throw new IllegalArgumentException("Team name must be 1-24 letters, numbers, '_' or '-'.");
     }
 
     public static void validatePlayerName(String name) {
-        if (name == null || !name.matches("[A-Za-z0-9_]{1,16}")) {
-            throw new IllegalArgumentException("Invalid Minecraft player name: " + name);
-        }
+        if (name == null || !name.matches("[A-Za-z0-9_]{1,16}")) throw new IllegalArgumentException("Invalid Minecraft player name: " + name);
     }
 }
