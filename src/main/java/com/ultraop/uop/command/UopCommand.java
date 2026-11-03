@@ -943,7 +943,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 if (a.length == 2) return matching(List.of("on", "off", "status", "list"), a[1]);
                 if (a.length == 3) return targets.suggestions(a[2]);
             }
-            if (root.equals("inv")) return inventoryTabs(a);
+            if (root.equals("inv")) return inventoryTabs(sender, a);
+            if (root.equals("name")) return nameTabs(a);
+            if (root.equals("protect")) return protectTabs(a);
+            if (root.equals("permission")) return permissionTabs(a);
             if (root.equals("reset") && a.length == 2) return matching(List.of("all"), a[1]);
         } catch (Exception ignored) {
             return List.of();
@@ -952,7 +955,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
 
 
-    private List<String> inventoryTabs(String[] a) {
+    private List<String> inventoryTabs(CommandSender sender, String[] a) {
         if (a.length == 2) return matching(List.of("view", "set", "remove", "give", "take", "clear",
                 "swap", "backup", "restore", "backups", "backup-delete", "record", "back", "lock", "unlock"), a[1]);
         String action = a[1].toLowerCase(Locale.ROOT);
@@ -983,7 +986,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             if (a.length == 3) return targets.suggestions(a[2]);
             if (a.length == 4 && !action.equals("backup")) {
                 String target = TargetResolver.clean(a[3 - 1]);
-                List<String> names = targets.resolveNames(Bukkit.getConsoleSender(), target);
+                List<String> names = targets.resolveNames(sender, target);
                 if (names.isEmpty()) return List.of();
                 return matching(inventory.backups(names.get(0)), a[3]);
             }
@@ -997,6 +1000,49 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             if (a.length == 4) return targets.suggestions(a[3]);
         }
         if (action.equals("back") && a.length == 4) return matching(List.of("10s", "30s", "1m", "5m", "10m", "30m", "1h"), a[3]);
+        return List.of();
+    }
+
+
+    private List<String> nameTabs(String[] a) {
+        if (a.length == 2) return matching(List.of("hide", "show", "tag", "glitch"), a[1]);
+        if (a[1].equalsIgnoreCase("hide") || a[1].equalsIgnoreCase("show") || a[1].equalsIgnoreCase("glitch")) {
+            if (a.length == 3 && !a[1].equalsIgnoreCase("glitch")) return targets.suggestions(a[2]);
+        }
+        if (a[1].equalsIgnoreCase("tag")) {
+            if (a.length == 3) return matching(List.of("help", "create", "edit", "list", "give", "change", "remove", "delete"), a[2]);
+            String action = a[2].toLowerCase(Locale.ROOT);
+            if (a.length == 4 && List.of("edit", "delete").contains(action)) return matching(names.tags(), a[3]);
+            if (a.length == 4 && List.of("give", "change", "remove").contains(action)) return targets.suggestions(a[3]);
+            if (a.length == 5 && List.of("give", "change").contains(action)) return matching(names.tags(), a[4]);
+            if (a.length == 5 && List.of("create", "edit").contains(action)) return matching(List.of("black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple", "gold", "gray", "dark_gray", "blue", "green", "aqua", "red", "light_purple", "yellow", "white", "#RRGGBB"), a[4]);
+            if (a.length == 6 && List.of("create", "edit").contains(action)) return matching(List.of("true", "false", "on", "off"), a[5]);
+            if (a.length == 7 && List.of("create", "edit").contains(action)) return matching(List.of("true", "false", "on", "off"), a[6]);
+        }
+        return List.of();
+    }
+
+    private List<String> protectTabs(String[] a) {
+        if (a.length == 2) return matching(List.of("add", "remove", "list", "reset"), a[1]);
+        if (a.length == 3 && List.of("add", "remove").contains(a[1])) return targets.suggestions(a[2]);
+        if (a.length == 4 && a[1].equals("add")) return matching(List.of("uuid", "ip", "both"), a[3]);
+        return List.of();
+    }
+
+    private List<String> permissionTabs(String[] a) {
+        if (a.length == 2) return matching(List.of("grant", "revoke", "list", "check", "reset"), a[1]);
+        if (a.length == 3 && List.of("grant", "revoke", "list", "check", "reset").contains(a[1])) {
+            if (a[1].equals("reset") && "all".startsWith(a[2].toLowerCase(Locale.ROOT))) return List.of("all");
+            return targets.suggestions(a[2]);
+        }
+        if (a.length >= 4 && List.of("grant", "revoke").contains(a[1])) {
+            return matching(List.of("uop.*", "uop.armor", "uop.checkpoint", "uop.damage", "uop.enchant",
+                    "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name", "uop.protect", "all"), a[a.length - 1]);
+        }
+        if (a.length == 4 && a[1].equals("check")) return matching(List.of("uop.*", "uop.armor", "uop.checkpoint",
+                "uop.damage", "uop.enchant", "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name",
+                "uop.protect", "uop.permission", "uop.admin"), a[3]);
+        if (a.length == 4 && a[1].equals("reset")) return matching(List.of("all", "uop.*", "uop.armor", "uop.freeze", "uop.inv"), a[3]);
         return List.of();
     }
 
