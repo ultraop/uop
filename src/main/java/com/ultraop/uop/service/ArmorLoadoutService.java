@@ -67,12 +67,16 @@ public final class ArmorLoadoutService {
         return true;
     }
 
-    public boolean giveRandom(List<String> allowedNames, Player player) {
+    public String chooseRandomName(List<String> allowedNames) {
         List<String> candidates = allowedNames.isEmpty() ? list() : allowedNames;
         List<String> existing = candidates.stream().filter(this::exists).toList();
-        if (existing.isEmpty()) return false;
-        String selected = existing.get(ThreadLocalRandom.current().nextInt(existing.size()));
-        return give(selected, player);
+        if (existing.isEmpty()) return null;
+        return existing.get(ThreadLocalRandom.current().nextInt(existing.size()));
+    }
+
+    public boolean giveRandom(List<String> allowedNames, Player player) {
+        String selected = chooseRandomName(allowedNames);
+        return selected != null && give(selected, player);
     }
 
     public boolean exists(String name) {
