@@ -33,7 +33,7 @@ com.ultraop.uop
 ```
 
 ## Shared target resolution
-Every compatible command uses one `TargetResolver`; individual services must not parse selectors or Team names independently.
+Every compatible command uses one `TargetResolver`; individual services must not parse selectors or Team names independently. Its target expression parser preserves commas inside selector brackets, rejects unmatched/nested brackets and empty comma-list entries, and de-duplicates resolved players.
 
 Completion order:
 1. Team names, displayed with a visual marker such as `★` (marker is not part of actual command input).
@@ -54,7 +54,7 @@ Persist a normalized-username PlayerProfile with last-seen UUID metadata. Keep d
 Armor, checkpoints, damage, enchant/disenchant, freeze/unfreeze, immortal, inventory operations/locks and name/tag operations all accept Player, Team or supported selector targets. A Team target resolves its roster and executes per-player behaviour. A Team does not own one shared inventory or one shared checkpoint snapshot unless an explicit operation says otherwise.
 
 ## Checkpoint snapshot
-Capture an independent snapshot per selected online player: identity metadata, world, position, yaw/pitch, full inventory, armor, offhand, selected hotbar slot and active potion effects. Health/food state are excluded until explicitly specified. `checkpoint tp` is full restore plus teleport, not teleport-only. Saving a Team checkpoint reports offline members without inventing snapshots. Restoring reports restored/offline/missing/failed counts.
+Capture an independent snapshot per selected online player: identity metadata, world, position, yaw/pitch, full inventory, armor, offhand, selected hotbar slot, health, food level, saturation and active potion effects. Restore clamps health/food/saturation to the player's current legal ranges and skips a snapshot when its world is unavailable. `checkpoint tp` is full restore plus teleport, not teleport-only. Saving a Team checkpoint reports offline members without inventing snapshots. Restoring reports restored/offline/missing/failed counts.
 
 ## Damage precedence
 1. Exact attacker → victim rule.
