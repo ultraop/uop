@@ -338,7 +338,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             List<Player> selected = targets.resolve(sender, a[2]);
             String slot = a.length == 5 ? a[3] : null;
             String enchantment = a.length == 5 ? a[4] : a[3];
-            String scope = a[1].equalsIgnoreCase("hand") ? "equipment" : a[1];
+            String scope = a[1];
             int changed = enchants.remove(selected, scope, slot, enchantment);
             msg(sender, "&aRemoved selected enchantment from " + changed + " item(s).");
         }
@@ -367,7 +367,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 teams.requireTeam(TargetResolver.clean(a[2]));
                 List<String> members = teams.members(TargetResolver.clean(a[2]));
                 List<String> online = teams.onlineMembers(TargetResolver.clean(a[2])).stream().map(Player::getName).toList();
-                msg(sender, "&f" + teams.displayName(a[2]) + " &7members (" + members.size() + "): &e" + String.join(", ", members));
+                msg(sender, "&f" + teams.displayName(TargetResolver.clean(a[2])) + " &7members (" + members.size() + "): &e" + String.join(", ", members));
                 msg(sender, "&7Online: &a" + String.join(", ", online) + " &8| Friendly fire: " + teams.friendlyFire(TargetResolver.clean(a[2])));
             }
             case "add" -> {
