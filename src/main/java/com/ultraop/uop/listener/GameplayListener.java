@@ -19,6 +19,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
@@ -58,6 +59,9 @@ public final class GameplayListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
+        if (event instanceof PlayerTeleportEvent teleport
+                && (teleport.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN
+                || teleport.getCause() == PlayerTeleportEvent.TeleportCause.COMMAND)) return;
         if (!freeze.frozen(player) || event.getTo() == null) return;
         Location from = event.getFrom();
         Location to = event.getTo();
@@ -148,7 +152,8 @@ public final class GameplayListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onPickup(EntityPickupItemEvent event) {
-        if (event.getEntity() instanceof Player player && freeze.frozen(player)) event.setCancelled(true);
+        if (event.getEntity() instanceof Player player
+                && (freeze.frozen(player) || profiles.locked(player, "inventory"))) event.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true)
