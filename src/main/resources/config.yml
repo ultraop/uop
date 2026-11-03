@@ -1,0 +1,30 @@
+# UOP default configuration
+schema-version: 1
+
+history:
+  sample-ticks: 100
+  window-seconds: 300
+  max-snapshots: 600
+
+teams:
+  friendly-fire-default: true
+  username-match-case-insensitive: true
+  one-team-per-player: true
+
+identity:
+  # Username matching enables the requested same-name reconnect workflow.
+  # WARNING: offline-mode servers cannot securely authenticate a username.
+  mode: username-with-uuid-metadata
+
+freeze:
+  exempt-ops: true
+  exempt-permission: uop.freeze.exempt
+
+damage:
+  minimum-multiplier: 0.0
+  maximum-multiplier: 10.0
+
+armor:
+  direct-kit:
+    min-enchantment-level: 1
+    max-enchantment-level: 5
