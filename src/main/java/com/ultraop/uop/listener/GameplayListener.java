@@ -22,6 +22,17 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
+import org.bukkit.event.player.PlayerBucketFillEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.event.player.PlayerToggleSprintEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
+import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.event.player.PlayerShearEntityEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 
 public final class GameplayListener implements Listener {
     private final PlayerProfileService profiles;
@@ -71,7 +82,7 @@ public final class GameplayListener implements Listener {
             if (byEntity.getDamager() instanceof Player player) attacker = player;
             else if (byEntity.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player player) attacker = player;
         }
-        if (attacker != null && freeze.frozen(attacker)) {
+        if (freeze.full(victim) || (attacker != null && freeze.frozen(attacker))) {
             event.setCancelled(true);
             return;
         }
@@ -107,7 +118,32 @@ public final class GameplayListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onConsume(PlayerItemConsumeEvent event) {
-        if (freeze.frozen(event.getPlayer())) event.setCancelled(true);
+        if (freeze.full(event.getPlayer())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onFish(PlayerFishEvent event) {
+        if (freeze.full(event.getPlayer())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onShear(PlayerShearEntityEvent event) {
+        if (freeze.full(event.getPlayer())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onSneak(PlayerToggleSneakEvent event) {
+        if (freeze.full(event.getPlayer())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onSprint(PlayerToggleSprintEvent event) {
+        if (freeze.full(event.getPlayer())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onFlight(PlayerToggleFlightEvent event) {
+        if (freeze.full(event.getPlayer())) event.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -117,6 +153,41 @@ public final class GameplayListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        if (!freeze.frozen(player)) return;
+        boolean armorEquip = !freeze.full(player) && isArmor(event.getItem())
+                && (event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR
+                || event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK);
+        if (!armorEquip) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onInteractEntity(PlayerInteractEntityEvent event) {
+        if (freeze.frozen(event.getPlayer())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onArmorStand(PlayerArmorStandManipulateEvent event) {
+        if (freeze.frozen(event.getPlayer())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockBreak(BlockBreakEvent event) {
+        if (freeze.frozen(event.getPlayer())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockPlace(BlockPlaceEvent event) {
+        if (freeze.frozen(event.getPlayer())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBucketEmpty(PlayerBucketEmptyEvent event) {
+        if (freeze.frozen(event.getPlayer())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBucketFill(PlayerBucketFillEvent event) {
         if (freeze.frozen(event.getPlayer())) event.setCancelled(true);
     }
 
