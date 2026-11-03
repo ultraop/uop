@@ -93,14 +93,29 @@ public final class DamageService {
         return false;
     }
 
+    private int specificity(String descriptor) {
+        if (descriptor == null) return 0;
+        if (descriptor.startsWith("players:")) return 2;
+        if (descriptor.startsWith("team:")) return 1;
+        return 0;
+    }
+
     private Double matchingRule(String path, Player player) {
+        Double selected = null;
+        int bestSpecificity = -1;
         for (Map<?, ?> entry : store.data().getMapList(path)) {
-            if (matches(String.valueOf(entry.get("target")), player)) {
-                Object value = entry.get("multiplier");
-                if (value instanceof Number number) return clamp(number.doubleValue());
+            String descriptor = String.valueOf(entry.get("target"));
+            if (!matches(descriptor, player)) continue;
+            Object value = entry.get("multiplier");
+            if (!(value instanceof Number number)) continue;
+            int currentSpecificity = specificity(descriptor);
+            // Most specific target wins; for equal specificity, the most recently saved rule wins.
+            if (currentSpecificity >= bestSpecificity) {
+                bestSpecificity = currentSpecificity;
+                selected = clamp(number.doubleValue());
             }
         }
-        return null;
+        return selected;
     }
 
     public double multiplier(Player attacker, Player victim) {
@@ -108,13 +123,19 @@ public final class DamageService {
             String team = teams.teamOf(attacker.getName());
             if (team != null && team.equalsIgnoreCase(teams.teamOf(victim.getName()))
                     && !teams.friendlyFire(team)) return 0.0;
+            Double pairMultiplier = null;
+            int pairSpecificity = -1;
             for (Map<?, ?> entry : store.data().getMapList("damage.rules.pairs")) {
                 String a = String.valueOf(entry.get("attacker"));
                 String v = String.valueOf(entry.get("victim"));
-                if (matches(a, attacker) && matches(v, victim) && entry.get("multiplier") instanceof Number n) {
-                    return clamp(n.doubleValue());
+                if (!matches(a, attacker) || !matches(v, victim) || !(entry.get("multiplier") instanceof Number n)) continue;
+                int current = specificity(a) + specificity(v);
+                if (current >= pairSpecificity) {
+                    pairSpecificity = current;
+                    pairMultiplier = clamp(n.doubleValue());
                 }
             }
+            if (pairMultiplier != null) return pairMultiplier;
             Double outgoing = matchingRule("damage.rules.outgoing", attacker);
             if (outgoing != null) return outgoing;
         }
@@ -152,6 +173,20 @@ public final class DamageService {
     public void resetAll() {
         store.data().set("damage", null);
         store.save();
+    }
+
+    public List<String> describeRules() {
+        List<String> result = new ArrayList<>();
+        result.add("global=" + global());
+        for (String scope : List.of("outgoing", "incoming")) {
+            for (Map<?, ?> entry : store.data().getMapList("damage.rules." + scope)) {
+                result.add(scope + " " + entry.get("target") + " x" + entry.get("multiplier"));
+            }
+        }
+        for (Map<?, ?> entry : store.data().getMapList("damage.rules.pairs")) {
+            result.add("pair " + entry.get("attacker") + " -> " + entry.get("victim") + " x" + entry.get("multiplier"));
+        }
+        return result;
     }
 
     public double global() {
