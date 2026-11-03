@@ -14,11 +14,15 @@ import java.util.regex.Pattern;
 public final class TeamService {
     private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_-]{1,24}");
     private final UopStore store;
-    private final boolean defaultFriendlyFire;
+    private boolean defaultFriendlyFire;
 
     public TeamService(UopStore store, boolean defaultFriendlyFire) {
         this.store = store;
         this.defaultFriendlyFire = defaultFriendlyFire;
+    }
+
+    public void defaultFriendlyFire(boolean enabled) {
+        this.defaultFriendlyFire = enabled;
     }
 
     public static String key(String value) {
