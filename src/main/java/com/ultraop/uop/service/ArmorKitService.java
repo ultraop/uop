@@ -110,7 +110,14 @@ public final class ArmorKitService {
                 meta.addEnchant(Enchantment.RESPIRATION, 3, true);
                 meta.addEnchant(Enchantment.AQUA_AFFINITY, 1, true);
             }
-            if (level >= 5) meta.addEnchant(Enchantment.THORNS, 3, true);
+            if (level >= 5) {
+                meta.addEnchant(Enchantment.THORNS, 3, true);
+                if (slot.equals("boots")) {
+                    meta.addEnchant(Enchantment.DEPTH_STRIDER, 3, true);
+                    meta.addEnchant(Enchantment.SOUL_SPEED, 3, true);
+                }
+                if (slot.equals("legs")) meta.addEnchant(Enchantment.SWIFT_SNEAK, 3, true);
+            }
         } else if (kind.equals("sword")) {
             if (level >= 2) meta.addEnchant(Enchantment.SHARPNESS, level >= 4 ? 5 : (level == 3 ? 3 : 2), true);
             if (level >= 3) meta.addEnchant(Enchantment.LOOTING, level >= 5 ? 3 : 2, true);
