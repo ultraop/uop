@@ -10,7 +10,7 @@
 ## Phase 1 — Core platform
 - [x] Plugin bootstrap and service wiring.
 - [x] Schema-versioned YAML storage with atomic writes.\n- [ ] Automated migration backups and schema migration tests.
-- [ ] Shared TargetResolver for Team names, selectors and Player names.
+- [x] Shared TargetResolver for Team names, selectors and Player names.
 - [x] Contextual argument hints and dynamic TAB suggestions for implemented command branches.
 - [x] Central execution-time permission checks and command registration.
 - [ ] Lifecycle/reload tests.
@@ -26,11 +26,11 @@
 ## Phase 3 — Legacy feature parity
 - [x] Armor set/save/list/delete/saved/random give, classic weapon set and safe remove.
 - [x] Full checkpoint snapshot and restore.
-- [ ] Damage global/outgoing/incoming/exact pair.
+- [x] Damage global/outgoing/incoming/exact pair.
 - [x] Enchant/disenchant scopes for online targets with offline Team actions queued.
 - [x] Normal/full freeze.
-- [x] Inventory operations, Player/Team swap, backup, history and locks.
-- [ ] Name visibility/tags, protection and permissions.
+- [x] Inventory operations, Player/Team swap, backup, history and locks.\n- [x] Persist active history sessions across reconnect/restart; retry failed samples without cancelling the sampler.
+- [x] Name visibility/tags, protection and permissions.
 - [ ] Complete Team support audit, including offline inventory operations and edge cases.
 
 ## Phase 4 — Requested upgrades
