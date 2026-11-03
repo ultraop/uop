@@ -27,11 +27,17 @@ public final class ArmorLoadoutService {
     public void save(String name, Player player) {
         String base = "armor-loadouts." + key(name);
         store.data().set(base + ".display-name", name);
-        store.data().set(base + ".storage", new ArrayList<>(java.util.Arrays.asList(player.getInventory().getStorageContents())));
-        store.data().set(base + ".armor", new ArrayList<>(java.util.Arrays.asList(player.getInventory().getArmorContents())));
+        store.data().set(base + ".storage", cloneItems(player.getInventory().getStorageContents()));
+        store.data().set(base + ".armor", cloneItems(player.getInventory().getArmorContents()));
         store.data().set(base + ".offhand", player.getInventory().getItemInOffHand());
         store.data().set(base + ".held-slot", player.getInventory().getHeldItemSlot());
         store.save();
+    }
+
+    private List<ItemStack> cloneItems(ItemStack[] source) {
+        List<ItemStack> result = new ArrayList<>(source.length);
+        for (ItemStack item : source) result.add(item == null ? null : item.clone());
+        return result;
     }
 
     public List<String> list() {
