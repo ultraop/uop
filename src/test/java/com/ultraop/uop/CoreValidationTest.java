@@ -3,6 +3,7 @@ package com.ultraop.uop;
 import com.ultraop.uop.service.ArmorKitService;
 import com.ultraop.uop.service.InventoryService;
 import com.ultraop.uop.target.TargetResolver;
+import com.ultraop.uop.target.TargetExpressionParser;
 import com.ultraop.uop.team.TeamService;
 import org.junit.jupiter.api.Test;
 
@@ -39,6 +40,28 @@ class CoreValidationTest {
         assertEquals(List.of("iron", "gold", "diamond", "netherite", "mixed"), kits.materials());
         assertEquals(List.of("leather", "chainmail", "iron", "gold", "diamond", "netherite"), kits.classicMaterials());
         assertEquals(List.of("sword", "mace", "axe", "bow", "crossbow", "trident", "pickaxe", "shovel", "hoe"), kits.weaponNames());
+    }
+
+    @Test
+    void targetParserKeepsSelectorCommasInsideSelectorArguments() {
+        assertEquals(List.of("@a[distance=..10,limit=2]", "Red", "UltraOP"),
+                TargetExpressionParser.split("@a[distance=..10,limit=2],Red,UltraOP"));
+    }
+
+    @Test
+    void targetParserTrimsWhitespaceAndKeepsSingleSelector() {
+        assertEquals(List.of("@a[gamemode=survival,sort=nearest]"),
+                TargetExpressionParser.split("  @a[gamemode=survival,sort=nearest]  "));
+    }
+
+    @Test
+    void targetParserRejectsEmptyOrMalformedEntries() {
+        assertThrows(IllegalArgumentException.class, () -> TargetExpressionParser.split(""));
+        assertThrows(IllegalArgumentException.class, () -> TargetExpressionParser.split("Red,,Blue"));
+        assertThrows(IllegalArgumentException.class, () -> TargetExpressionParser.split(",Red"));
+        assertThrows(IllegalArgumentException.class, () -> TargetExpressionParser.split("@a[distance=..10"));
+        assertThrows(IllegalArgumentException.class, () -> TargetExpressionParser.split("@a]"));
+        assertThrows(IllegalArgumentException.class, () -> TargetExpressionParser.split("@a[[limit=2]]"));
     }
 
     @Test
