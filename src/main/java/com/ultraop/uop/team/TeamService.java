@@ -3,6 +3,7 @@ package com.ultraop.uop.team;
 import com.ultraop.uop.storage.UopStore;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import com.ultraop.uop.target.TargetResolver;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -66,7 +67,7 @@ public final class TeamService {
     public List<Player> onlineMembers(String team) {
         List<Player> result = new ArrayList<>();
         for (String name : members(team)) {
-            Player player = Bukkit.getPlayerExact(name);
+            Player player = TargetResolver.onlinePlayer(name);
             if (player != null && player.isOnline()) result.add(player);
         }
         return result;
@@ -91,7 +92,7 @@ public final class TeamService {
             String profile = "players." + key(playerName);
             store.data().set(profile + ".team", displayName(team));
             store.data().set(profile + ".last-name", playerName);
-            Player online = Bukkit.getPlayerExact(playerName);
+            Player online = TargetResolver.onlinePlayer(playerName);
             if (online != null) store.data().set(profile + ".last-uuid", online.getUniqueId().toString());
         }
         store.data().set(base(team) + ".members", updated);
