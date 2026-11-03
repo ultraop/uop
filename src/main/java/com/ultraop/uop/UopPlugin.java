@@ -2,6 +2,8 @@ package com.ultraop.uop;
 
 import com.ultraop.uop.command.UopCommand;
 import com.ultraop.uop.listener.GameplayListener;
+import com.ultraop.uop.listener.NameTagListener;
+import com.ultraop.uop.listener.ProtectionListener;
 import com.ultraop.uop.profile.PlayerProfileService;
 import com.ultraop.uop.service.ArmorKitService;
 import com.ultraop.uop.service.ArmorLoadoutService;
@@ -12,6 +14,9 @@ import com.ultraop.uop.service.FreezeImmortalService;
 import com.ultraop.uop.service.InventoryService;
 import org.bukkit.Bukkit;
 import com.ultraop.uop.service.PendingActionService;
+import com.ultraop.uop.service.NameService;
+import com.ultraop.uop.service.ProtectionService;
+import com.ultraop.uop.service.PermissionService;
 import com.ultraop.uop.storage.UopStore;
 import com.ultraop.uop.target.TargetResolver;
 import com.ultraop.uop.team.TeamService;
@@ -31,6 +36,9 @@ public final class UopPlugin extends JavaPlugin {
     private FreezeImmortalService states;
     private PendingActionService pending;
     private InventoryService inventory;
+    private NameService names;
+    private ProtectionService protection;
+    private PermissionService permissions;
     private int historyTask = -1;
 
     @Override
@@ -40,10 +48,12 @@ public final class UopPlugin extends JavaPlugin {
         PluginCommand root = getCommand("uop");
         if (root == null) throw new IllegalStateException("The /uop command is missing from plugin.yml");
         UopCommand executor = new UopCommand(this, teams, targets, kits, loadouts, checkpoints,
-                damage, enchants, states, profiles, pending, inventory);
+                damage, enchants, states, profiles, pending, inventory, names, protection, permissions);
         root.setExecutor(executor);
         root.setTabCompleter(executor);
         getServer().getPluginManager().registerEvents(new GameplayListener(profiles, states, damage, pending), this);
+        getServer().getPluginManager().registerEvents(new NameTagListener(names), this);
+        getServer().getPluginManager().registerEvents(new ProtectionListener(protection), this);
         long sampleTicks = Math.max(1L, getConfig().getLong("history.sample-ticks", 100L));
         historyTask = Bukkit.getScheduler().runTaskTimer(this, inventory::tickHistory, sampleTicks, sampleTicks).getTaskId();
         getLogger().info("UOP enabled: Team, target, checkpoint, damage, enchantment, freeze and immortal services registered.");
@@ -62,6 +72,9 @@ public final class UopPlugin extends JavaPlugin {
         states = new FreezeImmortalService(profiles);
         pending = new PendingActionService(store, this, kits, loadouts, checkpoints, enchants);
         inventory = new InventoryService(this, store, teams);
+        names = new NameService(store);
+        protection = new ProtectionService(store);
+        permissions = new PermissionService(store);
     }
 
     @Override
@@ -73,8 +86,12 @@ public final class UopPlugin extends JavaPlugin {
     public void reloadUop() {
         reloadConfig();
         store.reload();
+        names.refreshAll();
     }
 
     public UopStore store() { return store; }
     public InventoryService inventory() { return inventory; }
+    public NameService names() { return names; }
+    public ProtectionService protection() { return protection; }
+    public PermissionService permissions() { return permissions; }
 }
