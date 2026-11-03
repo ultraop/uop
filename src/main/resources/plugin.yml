@@ -1,0 +1,25 @@
+name: UOP
+version: '${version}'
+main: com.ultraop.uop.UopPlugin
+api-version: '1.21.11'
+author: UltraOP
+description: Upgraded UltraOP creator recording and server administration toolkit.
+website: https://github.com/ultraop/uop
+commands:
+  uop:
+    description: UOP recording toolkit command root
+    usage: /uop help
+    aliases: [ultraop]
+permissions:
+  uop.armor: { default: op }
+  uop.checkpoint: { default: op }
+  uop.damage: { default: op }
+  uop.enchant: { default: op }
+  uop.freeze: { default: op }
+  uop.immortal: { default: op }
+  uop.team: { default: op }
+  uop.inv: { default: op }
+  uop.name: { default: op }
+  uop.protect: { default: op }
+  uop.permission: { default: op }
+  uop.admin: { default: op }
