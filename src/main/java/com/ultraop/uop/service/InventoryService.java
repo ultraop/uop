@@ -275,14 +275,28 @@ public final class InventoryService {
                     .filter(candidate -> candidate.getName().equalsIgnoreCase(name))
                     .findFirst().orElse(null);
             if (player != null && player.isOnline()) {
-                changed |= record(player, false);
+                try {
+                    changed |= record(player, false);
+                } catch (RuntimeException ex) {
+                    // A bad sample must not cancel the repeating scheduler task or stop
+                    // the recording session. Keep the prior history and retry next cycle.
+                    plugin.getLogger().warning("Inventory history sample failed for " + name
+                            + "; recording remains active and will retry: " + ex.getMessage());
+                }
             } else {
                 // Keep the recording active while the player is offline. The next sample
                 // after reconnect establishes a fresh baseline instead of silently stopping.
                 lastFingerprints.remove(name);
             }
         }
-        if (changed) store.save();
+        if (changed) {
+            try {
+                store.save();
+            } catch (RuntimeException ex) {
+                // Keep the scheduler alive so the next sampling cycle can retry persistence.
+                plugin.getLogger().severe("Could not persist inventory history this cycle: " + ex.getMessage());
+            }
+        }
     }
 
     private boolean record(Player player, boolean force) {
