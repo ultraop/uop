@@ -249,7 +249,9 @@ public final class InventoryService {
 
     public void tickHistory() {
         for (String name : new ArrayList<>(recording)) {
-            Player player = plugin.getServer().getPlayerExact(name);
+            Player player = plugin.getServer().getOnlinePlayers().stream()
+                    .filter(candidate -> candidate.getName().equalsIgnoreCase(name))
+                    .findFirst().orElse(null);
             if (player != null && player.isOnline()) record(player, false);
             else {
                 recording.remove(name);
@@ -334,11 +336,17 @@ public final class InventoryService {
     private Map<String, Object> snapshot(Player player) {
         PlayerInventory inventory = player.getInventory();
         Map<String, Object> state = new LinkedHashMap<>();
-        state.put("contents", new ArrayList<>(Arrays.asList(inventory.getStorageContents())));
-        state.put("armor", new ArrayList<>(Arrays.asList(inventory.getArmorContents())));
+        state.put("contents", cloneItems(inventory.getStorageContents()));
+        state.put("armor", cloneItems(inventory.getArmorContents()));
         state.put("offhand", inventory.getItemInOffHand());
         state.put("held-slot", inventory.getHeldItemSlot());
         return state;
+    }
+
+    private List<ItemStack> cloneItems(ItemStack[] source) {
+        List<ItemStack> result = new ArrayList<>(source.length);
+        for (ItemStack item : source) result.add(item == null ? null : item.clone());
+        return result;
     }
 
     private void restoreSnapshot(Player player, Map<?, ?> state) {
