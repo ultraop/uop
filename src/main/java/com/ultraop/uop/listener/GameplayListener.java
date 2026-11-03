@@ -3,6 +3,7 @@ package com.ultraop.uop.listener;
 import com.ultraop.uop.profile.PlayerProfileService;
 import com.ultraop.uop.service.DamageService;
 import com.ultraop.uop.service.FreezeImmortalService;
+import com.ultraop.uop.service.PendingActionService;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -26,16 +27,21 @@ public final class GameplayListener implements Listener {
     private final PlayerProfileService profiles;
     private final FreezeImmortalService freeze;
     private final DamageService damage;
+    private final PendingActionService pending;
 
-    public GameplayListener(PlayerProfileService profiles, FreezeImmortalService freeze, DamageService damage) {
+    public GameplayListener(PlayerProfileService profiles, FreezeImmortalService freeze, DamageService damage,
+                            PendingActionService pending) {
         this.profiles = profiles;
         this.freeze = freeze;
         this.damage = damage;
+        this.pending = pending;
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         profiles.observe(event.getPlayer());
+        int applied = pending.applyOnJoin(event.getPlayer());
+        if (applied > 0) event.getPlayer().sendMessage("§7[§6UOP§7] §aRestored " + applied + " pending Team action(s).");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
