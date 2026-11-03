@@ -881,8 +881,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 }
                 if (a[2].equalsIgnoreCase("start")) {
                     List<Player> selected = targets.resolve(sender, a[3]);
-                    inventory.startRecord(selected);
-                    msg(sender, "&aInventory history recording started for " + selected.size() + " online player(s).");
+                    int started = inventory.startRecord(selected);
+                    msg(sender, "&aInventory history recording started for " + started + " of "
+                            + selected.size() + " selected online player(s).");
                 } else {
                     List<String> selected = targets.resolveNames(sender, a[3]);
                     inventory.stopRecordNames(selected);
