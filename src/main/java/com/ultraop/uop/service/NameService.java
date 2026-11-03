@@ -58,13 +58,30 @@ public final class NameService {
     }
 
     private void removeHiddenEntry(Player player) {
-        Team team = Bukkit.getScoreboardManager().getMainScoreboard().getTeam(HIDDEN_TEAM);
+        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team team = board.getTeam(HIDDEN_TEAM);
         if (team != null) team.removeEntry(player.getName());
+        String previousName = store.data().getString(playerPath(player.getName()) + ".previous-scoreboard-team");
+        if (previousName != null) {
+            Team previous = board.getTeam(previousName);
+            if (previous != null) previous.addEntry(player.getName());
+            store.data().set(playerPath(player.getName()) + ".previous-scoreboard-team", null);
+            store.save();
+        }
     }
 
     public void refresh(Player player) {
         removeHiddenEntry(player);
-        if (hidden(player)) hiddenTeam().addEntry(player.getName());
+        if (hidden(player)) {
+            Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+            Team existing = board.getEntryTeam(player.getName());
+            if (existing != null && !existing.getName().equals(HIDDEN_TEAM)) {
+                store.data().set(playerPath(player.getName()) + ".previous-scoreboard-team", existing.getName());
+                existing.removeEntry(player.getName());
+                store.save();
+            }
+            hiddenTeam().addEntry(player.getName());
+        }
         applyTag(player);
     }
 
@@ -76,7 +93,6 @@ public final class NameService {
         String tag = tagText(player.getName());
         String display = tag == null ? player.getName() : tag + "§r " + player.getName();
         player.setDisplayName(display);
-        player.setPlayerListName(display);
         player.setCustomName(tag == null ? null : display);
         player.setCustomNameVisible(tag != null && !hidden(player));
     }
@@ -163,6 +179,10 @@ public final class NameService {
         store.save();
         Player player = Bukkit.getPlayerExact(playerName);
         if (player != null) refresh(player);
+    }
+
+    public boolean hasTag(Player player) {
+        return tagText(player.getName()) != null;
     }
 
     public String tagId(String playerName) {
