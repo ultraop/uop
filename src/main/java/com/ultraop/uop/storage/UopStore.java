@@ -1,5 +1,6 @@
 package com.ultraop.uop.storage;
 
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -25,8 +26,26 @@ public final class UopStore {
     }
 
     public synchronized void reload() {
-        data = YamlConfiguration.loadConfiguration(file);
-        if (!data.contains("schema-version")) data.set("schema-version", 1);
+        YamlConfiguration loaded = new YamlConfiguration();
+        if (file.exists()) {
+            try {
+                // Use the strict loader. loadConfiguration(File) may return an empty
+                // configuration after a parse problem, which could later overwrite
+                // the user's existing data with a blank file.
+                loaded.load(file);
+            } catch (IOException | InvalidConfigurationException ex) {
+                plugin.getLogger().severe("UOP data file could not be parsed; original file was left untouched: "
+                        + ex.getMessage());
+                throw new IllegalStateException("UOP data is invalid. The plugin has stopped loading to protect it.", ex);
+            }
+        }
+        if (!loaded.contains("schema-version")) loaded.set("schema-version", 1);
+        int schemaVersion = loaded.getInt("schema-version", 1);
+        if (schemaVersion != 1) {
+            throw new IllegalStateException("Unsupported UOP data schema version " + schemaVersion
+                    + "; expected version 1. Original data was left untouched.");
+        }
+        data = loaded;
     }
 
     public synchronized YamlConfiguration data() {
