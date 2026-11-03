@@ -137,7 +137,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
 
     private void help(CommandSender sender, String[] args) {
-        if (args.length == 1) {
+        if (args.length <= 1) {
             msg(sender, "&6UOP &f— Command Directory");
             msg(sender, "&e★ team &7— create, delete, list, info, add, remove, removeall, tp, settings");
             msg(sender, "&e★ armor &7— set, save, list, delete, give direct/saved/random, remove, weapon");
@@ -1141,7 +1141,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             if (a.length == 1) return matching(ROOTS, a[0]);
             String root = a[0].toLowerCase(Locale.ROOT);
             if (root.equals("help") && a.length == 2) return matching(List.of("team", "armor", "checkpoint", "damage",
-                    "enchant", "disenchant", "freeze", "immortal", "inv", "name", "protect", "permission", "admin"), a[1]);
+                    "enchant", "disenchant", "freeze", "unfreeze", "immortal", "inv", "name", "protect", "permission", "admin"), a[1]);
             if (root.equals("team")) return teamTabs(a);
             if (root.equals("armor")) return armorTabs(a);
             if (root.equals("checkpoint")) return checkpointTabs(a);
