@@ -73,7 +73,8 @@ public final class GameplayListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onDrop(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
-        if (freeze.frozen(player) || profiles.locked(player, "drop") || profiles.locked(player, "inventory")) {
+        boolean droppingArmor = profiles.locked(player, "armor") && isArmor(event.getItemDrop().getItemStack());
+        if (freeze.frozen(player) || profiles.locked(player, "drop") || profiles.locked(player, "inventory") || droppingArmor) {
             event.setCancelled(true);
         }
     }
