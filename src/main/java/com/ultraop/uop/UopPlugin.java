@@ -9,6 +9,8 @@ import com.ultraop.uop.service.CheckpointService;
 import com.ultraop.uop.service.DamageService;
 import com.ultraop.uop.service.EnchantService;
 import com.ultraop.uop.service.FreezeImmortalService;
+import com.ultraop.uop.service.InventoryService;
+import org.bukkit.Bukkit;
 import com.ultraop.uop.service.PendingActionService;
 import com.ultraop.uop.storage.UopStore;
 import com.ultraop.uop.target.TargetResolver;
@@ -28,6 +30,8 @@ public final class UopPlugin extends JavaPlugin {
     private EnchantService enchants;
     private FreezeImmortalService states;
     private PendingActionService pending;
+    private InventoryService inventory;
+    private int historyTask = -1;
 
     @Override
     public void onEnable() {
@@ -36,10 +40,12 @@ public final class UopPlugin extends JavaPlugin {
         PluginCommand root = getCommand("uop");
         if (root == null) throw new IllegalStateException("The /uop command is missing from plugin.yml");
         UopCommand executor = new UopCommand(this, teams, targets, kits, loadouts, checkpoints,
-                damage, enchants, states, profiles, pending);
+                damage, enchants, states, profiles, pending, inventory);
         root.setExecutor(executor);
         root.setTabCompleter(executor);
         getServer().getPluginManager().registerEvents(new GameplayListener(profiles, states, damage, pending), this);
+        long sampleTicks = Math.max(1L, getConfig().getLong("history.sample-ticks", 100L));
+        historyTask = Bukkit.getScheduler().runTaskTimer(this, inventory::tickHistory, sampleTicks, sampleTicks).getTaskId();
         getLogger().info("UOP enabled: Team, target, checkpoint, damage, enchantment, freeze and immortal services registered.");
     }
 
@@ -55,10 +61,12 @@ public final class UopPlugin extends JavaPlugin {
         enchants = new EnchantService();
         states = new FreezeImmortalService(profiles);
         pending = new PendingActionService(store, this, kits, loadouts, checkpoints, enchants);
+        inventory = new InventoryService(this, store, teams);
     }
 
     @Override
     public void onDisable() {
+        if (historyTask != -1) Bukkit.getScheduler().cancelTask(historyTask);
         if (store != null) store.save();
     }
 
@@ -68,4 +76,5 @@ public final class UopPlugin extends JavaPlugin {
     }
 
     public UopStore store() { return store; }
+    public InventoryService inventory() { return inventory; }
 }
