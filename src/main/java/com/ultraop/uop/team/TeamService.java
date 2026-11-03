@@ -23,7 +23,7 @@ public final class TeamService {
     }
 
     private String base(String team) {
-        return "teams." + key(team);
+        return "teams.entries." + key(team);
     }
 
     public boolean exists(String team) {
@@ -36,7 +36,7 @@ public final class TeamService {
         store.data().set(base(team) + ".name", team);
         store.data().set(base(team) + ".members", new ArrayList<String>());
         store.data().set(base(team) + ".settings.friendly-fire",
-                store.data().getBoolean("settings.team-friendly-fire-default", true));
+                store.data().getBoolean("teams.friendly-fire-default", true));
         store.save();
     }
 
@@ -48,7 +48,7 @@ public final class TeamService {
     }
 
     public Set<String> list() {
-        var section = store.data().getConfigurationSection("teams");
+        var section = store.data().getConfigurationSection("teams.entries");
         return section == null ? Set.of() : section.getKeys(false);
     }
 
