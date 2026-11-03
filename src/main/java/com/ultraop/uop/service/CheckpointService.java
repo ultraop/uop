@@ -3,6 +3,8 @@ package com.ultraop.uop.service;
 import com.ultraop.uop.storage.UopStore;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -11,6 +13,7 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,12 +48,13 @@ public final class CheckpointService {
             store.data().set(base + ".z", location.getZ());
             store.data().set(base + ".yaw", location.getYaw());
             store.data().set(base + ".pitch", location.getPitch());
-            store.data().set(base + ".storage", new ArrayList<>(List.of(player.getInventory().getStorageContents())));
-            store.data().set(base + ".armor", new ArrayList<>(List.of(player.getInventory().getArmorContents())));
+            store.data().set(base + ".storage", new ArrayList<>(Arrays.asList(player.getInventory().getStorageContents())));
+            store.data().set(base + ".armor", new ArrayList<>(Arrays.asList(player.getInventory().getArmorContents())));
             store.data().set(base + ".offhand", player.getInventory().getItemInOffHand());
             store.data().set(base + ".held-slot", player.getInventory().getHeldItemSlot());
             store.data().set(base + ".health", player.getHealth());
             store.data().set(base + ".food", player.getFoodLevel());
+            store.data().set(base + ".saturation", player.getSaturation());
             List<Map<String, Object>> effects = new ArrayList<>();
             for (PotionEffect effect : player.getActivePotionEffects()) {
                 Map<String, Object> entry = new HashMap<>();
@@ -75,9 +79,7 @@ public final class CheckpointService {
         ConfigurationSection section = store.data().getConfigurationSection("checkpoints");
         if (section == null) return List.of();
         List<String> names = new ArrayList<>();
-        for (String child : section.getKeys(false)) {
-            names.add(section.getString(child + ".display-name", child));
-        }
+        for (String child : section.getKeys(false)) names.add(section.getString(child + ".display-name", child));
         return names;
     }
 
@@ -98,23 +100,16 @@ public final class CheckpointService {
         String checkpoint = key(name);
         if (!store.data().contains("checkpoints." + checkpoint)) throw new IllegalArgumentException("Checkpoint not found: " + name);
         int restored = 0;
-        List<String> missing = new ArrayList<>();
         for (Player player : players) {
             String base = "checkpoints." + checkpoint + ".players." + player.getName().toLowerCase();
-            if (!store.data().contains(base + ".world")) {
-                missing.add(player.getName());
-                continue;
-            }
+            if (!store.data().contains(base + ".world")) continue;
             World world;
             try {
                 world = Bukkit.getWorld(UUID.fromString(store.data().getString(base + ".world")));
             } catch (Exception ex) {
                 world = null;
             }
-            if (world == null) {
-                missing.add(player.getName() + " (world unavailable)");
-                continue;
-            }
+            if (world == null) continue;
             Location target = new Location(world,
                     store.data().getDouble(base + ".x"),
                     store.data().getDouble(base + ".y"),
@@ -139,19 +134,23 @@ public final class CheckpointService {
             player.getInventory().setItemInOffHand(offhand instanceof ItemStack item ? item.clone() : null);
             player.getInventory().setHeldItemSlot(Math.max(0, Math.min(8, store.data().getInt(base + ".held-slot", 0))));
             player.setFoodLevel(Math.max(0, Math.min(20, store.data().getInt(base + ".food", 20))));
+            player.setSaturation(Math.max(0.0f, store.data().getFloat(base + ".saturation", 5.0f)));
             double health = store.data().getDouble(base + ".health", 20.0);
             player.setHealth(Math.max(1.0, Math.min(player.getMaxHealth(), health)));
             for (PotionEffect existing : player.getActivePotionEffects()) player.removePotionEffect(existing.getType());
             for (Map<?, ?> entry : store.data().getMapList(base + ".effects")) {
                 String typeKey = String.valueOf(entry.get("type"));
-                PotionEffectType type = PotionEffectType.getByKey(org.bukkit.NamespacedKey.fromString(typeKey));
+                NamespacedKey key = NamespacedKey.fromString(typeKey);
+                PotionEffectType type = key == null ? null : Registry.POTION_EFFECT_TYPE.get(key);
                 if (type == null) continue;
-                int duration = ((Number) entry.getOrDefault("duration", 0)).intValue();
-                int amplifier = ((Number) entry.getOrDefault("amplifier", 0)).intValue();
+                Object durationValue = entry.get("duration");
+                Object amplifierValue = entry.get("amplifier");
+                int duration = durationValue instanceof Number n ? n.intValue() : 0;
+                int amplifier = amplifierValue instanceof Number n ? n.intValue() : 0;
                 boolean ambient = Boolean.TRUE.equals(entry.get("ambient"));
                 boolean particles = !Boolean.FALSE.equals(entry.get("particles"));
                 boolean icon = !Boolean.FALSE.equals(entry.get("icon"));
-                player.addPotionEffect(new PotionEffect(type, duration, amplifier, ambient, particles, icon));
+                if (duration > 0) player.addPotionEffect(new PotionEffect(type, duration, amplifier, ambient, particles, icon));
             }
             player.teleport(target);
             player.updateInventory();
