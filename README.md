@@ -32,10 +32,24 @@ See [Architecture](docs/ARCHITECTURE.md), [Commands](docs/COMMANDS.md), [Impleme
 Target argument completion order is **★ Team names**, then valid selectors (`@a`, `@p`, `@r`, `@s`, and supported filters), then online player names. `@e` is offered only for entity-capable operations. The star is display-only. Do not add duplicate `everyone`/`nearby` target keywords where vanilla selectors cover the use case.
 
 ## Build
-`./gradlew clean build` (Windows: `gradlew.bat clean build`). Output: `build/libs/`.
+Gradle 9.5.1 and Java 21 are used by the GitHub Actions pipeline.
 
-## Status
-This initial commit establishes project documentation and the Paper bootstrap. A feature is not considered implemented until its service, listener, persistence, permission checks, command execution, TAB completion and tests are complete.
+```bash
+gradle clean test build
+```
+
+Windows:
+
+```bat
+gradle.bat clean test build
+```
+
+Output: `build/libs/`. The CI pipeline also validates `plugin.yml`, verifies the main plugin class, generates a SHA-256 checksum, and uploads the JAR artifact.
+
+## Implementation status
+The repository now contains the first working implementation layer for Team/profile persistence, shared Player/Team/selector targeting, armor presets and direct kits, checkpoints, damage rules, enchant/disenchant, freeze/immortal, inventory operations/history/locks, name tags, login protection, permissions, argument hints, and contextual TAB completion.
+
+Not all release requirements are complete. Name Glitch integration is intentionally disabled until its dependency is identified. Legacy data migration, complete automated feature tests, and live Paper 1.21.11 server testing remain outstanding. A green CI build confirms compilation and packaging, not every in-game behaviour.
 
 ## License
 Proprietary — UltraOP.
