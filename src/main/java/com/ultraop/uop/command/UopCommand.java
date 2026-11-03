@@ -156,22 +156,77 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
 
         String group = args[1].toLowerCase(Locale.ROOT);
         switch (group) {
-            case "team" -> msg(sender, "&f/uop team <create|delete|list|info|add|remove|removeall|tp|settings>");
-            case "armor" -> msg(sender, "&f/uop armor <set|save|list|delete|give direct|give saved|give random|remove|weapon set>");
-            case "checkpoint" -> msg(sender, "&f/uop checkpoint <save|tp|back|list|delete|clear>");
-            case "damage" -> msg(sender, "&f/uop damage <global|outgoing|incoming|set|reset|list>");
+            case "team" -> {
+                msg(sender, "&f/uop team create <team_name>");
+                msg(sender, "&f/uop team delete|info|removeall <team_name>");
+                msg(sender, "&f/uop team add <team_name> <player|selector>...");
+                msg(sender, "&f/uop team remove <team_name> <player>");
+                msg(sender, "&f/uop team tp <team_name> <destination_player>");
+                msg(sender, "&f/uop team settings friendlyfire <team_name> <on|off>");
+                msg(sender, "&f/uop team list");
+            }
+            case "armor" -> {
+                msg(sender, "&f/uop armor set <target> <material> <plain|enchanted 1-10|max> [true|false|on|off] [weapons...]");
+                msg(sender, "&f/uop armor weapon set <target> <plain|enchanted 1-10|max> <weapons...>");
+                msg(sender, "&f/uop armor save <set_name> <player> | list | delete <set_name>");
+                msg(sender, "&f/uop armor give direct <material> enchanted <1-5> <target>");
+                msg(sender, "&f/uop armor give saved <target> <set_name>");
+                msg(sender, "&f/uop armor give random <target> <set1,set2,...|all>");
+                msg(sender, "&f/uop armor remove <target>");
+            }
+            case "checkpoint" -> {
+                msg(sender, "&f/uop checkpoint save <checkpoint_name> <target>");
+                msg(sender, "&f/uop checkpoint tp|back <checkpoint_name> <target>");
+                msg(sender, "&f/uop checkpoint list | delete <checkpoint_name> | clear all");
+            }
+            case "damage" -> {
+                msg(sender, "&f/uop damage global <0-10>");
+                msg(sender, "&f/uop damage outgoing|incoming <target> <0-10>");
+                msg(sender, "&f/uop damage set <attacker_target> <victim_target> <0-10>");
+                msg(sender, "&f/uop damage reset global|all");
+                msg(sender, "&f/uop damage reset outgoing|incoming <target>");
+                msg(sender, "&f/uop damage reset pair <attacker_target> <victim_target> | list");
+            }
             case "enchant" -> msg(sender, "&f/uop enchant <all|armor|equipment|mainhand|offhand|inventory> <target> <enchantment> <level>");
-            case "disenchant" -> msg(sender, "&f/uop disenchant <all|armor|equipment|hand|inventory> <target> [slot] <enchantment>");
-            case "freeze" -> msg(sender, "&f/uop freeze <normal|full> <target> | /uop unfreeze <target>");
-            case "immortal" -> msg(sender, "&f/uop immortal <on|off|status|list> [target]");
-            case "inv" -> msg(sender, "&f/uop inv <view|set|remove|give|take|clear|swap|backup|restore|backups|backup-delete|record|back|lock|unlock>");
-            case "name" -> msg(sender, "&f/uop name <hide|show|glitch|tag>");
-            case "protect" -> msg(sender, "&f/uop protect <add|remove|list|reset>");
-            case "permission" -> msg(sender, "&f/uop permission <grant|revoke|list|check|reset>");
-            case "admin" -> msg(sender, "&f/uop <reload|reset all|version>");
+            case "disenchant" -> msg(sender, "&f/uop disenchant <all|armor|equipment|hand|inventory> <target> [mainhand|offhand|head|chest|legs|feet] <enchantment>");
+            case "freeze" -> msg(sender, "&f/uop freeze <normal|full> <target>");
+            case "unfreeze" -> msg(sender, "&f/uop unfreeze <target>");
+            case "immortal" -> {
+                msg(sender, "&f/uop immortal on|off <target>");
+                msg(sender, "&f/uop immortal status <target> | list");
+            }
+            case "inv" -> {
+                msg(sender, "&f/uop inv view|clear|backups <target>");
+                msg(sender, "&f/uop inv set <target> <slot 0-40> <item> [amount] | remove <target> <slot>");
+                msg(sender, "&f/uop inv give|take <target> <item> [amount]");
+                msg(sender, "&f/uop inv swap player <player1> <player2> | swap team <team1> <team2>");
+                msg(sender, "&f/uop inv backup|restore <target> <backup_name> | backup-delete <target> <backup_name>");
+                msg(sender, "&f/uop inv record start|stop <target> | record status | back <target> <time>");
+                msg(sender, "&f/uop inv lock|unlock <inventory|armor|drop> <target>");
+            }
+            case "name" -> {
+                msg(sender, "&f/uop name hide|show <target>");
+                msg(sender, "&f/uop name tag create|edit <id> <color|#RRGGBB> <bold> <italic> <text...>");
+                msg(sender, "&f/uop name tag list | give|change <target> <id> | remove <target> | delete <id>");
+                msg(sender, "&f/uop name glitch <target> (optional integration disabled)");
+            }
+            case "protect" -> {
+                msg(sender, "&f/uop protect add <target> [uuid|ip|both]");
+                msg(sender, "&f/uop protect remove <target> | list | reset");
+            }
+            case "permission" -> {
+                msg(sender, "&f/uop permission grant|revoke <target> <nodes...>");
+                msg(sender, "&f/uop permission list <target> | check <target> <node>");
+                msg(sender, "&f/uop permission reset <target> [node|all] | reset all");
+            }
+            case "admin" -> {
+                msg(sender, "&f/uop reload");
+                msg(sender, "&f/uop reset all");
+                msg(sender, "&f/uop version");
+            }
             default -> {
                 msg(sender, "&cUnknown help group: " + group);
-                msg(sender, "&7Available: team, armor, checkpoint, damage, enchant, disenchant, freeze, immortal, inv, name, protect, permission, admin");
+                msg(sender, "&7Available: team, armor, checkpoint, damage, enchant, disenchant, freeze, unfreeze, immortal, inv, name, protect, permission, admin");
             }
         }
     }
