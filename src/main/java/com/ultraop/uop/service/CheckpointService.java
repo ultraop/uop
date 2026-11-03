@@ -48,8 +48,8 @@ public final class CheckpointService {
             store.data().set(base + ".z", location.getZ());
             store.data().set(base + ".yaw", location.getYaw());
             store.data().set(base + ".pitch", location.getPitch());
-            store.data().set(base + ".storage", new ArrayList<>(Arrays.asList(player.getInventory().getStorageContents())));
-            store.data().set(base + ".armor", new ArrayList<>(Arrays.asList(player.getInventory().getArmorContents())));
+            store.data().set(base + ".storage", cloneItems(player.getInventory().getStorageContents()));
+            store.data().set(base + ".armor", cloneItems(player.getInventory().getArmorContents()));
             store.data().set(base + ".offhand", player.getInventory().getItemInOffHand());
             store.data().set(base + ".held-slot", player.getInventory().getHeldItemSlot());
             store.data().set(base + ".health", player.getHealth());
@@ -73,6 +73,12 @@ public final class CheckpointService {
         }
         store.save();
         return saved;
+    }
+
+    private List<ItemStack> cloneItems(ItemStack[] source) {
+        List<ItemStack> result = new ArrayList<>(source.length);
+        for (ItemStack item : source) result.add(item == null ? null : item.clone());
+        return result;
     }
 
     public List<String> list() {
@@ -133,6 +139,7 @@ public final class CheckpointService {
                 armorContents[i] = armor.get(i) instanceof ItemStack item ? item.clone() : null;
             }
 
+            if (!player.teleport(target)) continue;
             player.getInventory().setStorageContents(contents);
             player.getInventory().setArmorContents(armorContents);
             Object offhand = store.data().get(base + ".offhand");
@@ -159,7 +166,6 @@ public final class CheckpointService {
                 boolean icon = !Boolean.FALSE.equals(entry.get("icon"));
                 if (duration > 0) player.addPotionEffect(new PotionEffect(type, duration, amplifier, ambient, particles, icon));
             }
-            player.teleport(target);
             player.updateInventory();
             restored++;
         }
