@@ -111,7 +111,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 case "unfreeze" -> freeze(sender, args, true);
                 case "immortal" -> immortal(sender, args);
                 case "inv" -> inventory(sender, args);
-                case "help" -> help(sender);
+                case "help" -> help(sender, args);
                 case "version" -> msg(sender, "&fUOP &7" + plugin.getDescription().getVersion() + " &8| &fPaper 1.21.11 &8| &fJava 21+");
                 case "reload" -> {
                     require(sender, "uop.admin");
@@ -136,17 +136,44 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private void help(CommandSender sender) {
-        msg(sender, "&fUOP command groups:");
-        msg(sender, "&e★ armor &7— saved loadouts and direct OP kits");
-        msg(sender, "&e★ checkpoint &7— save/list/restore full player state");
-        msg(sender, "&e★ damage &7— player/team damage rules");
-        msg(sender, "&e★ enchant / disenchant &7— item enchantment management");
-        msg(sender, "&e★ freeze / unfreeze / immortal &7— player/team state controls");
-        msg(sender, "&e★ team &7— persistent teams and friendly fire");
-        msg(sender, "&e★ inv &7— inventory locks");
-        msg(sender, "&ehelp, reload, reset, version");
-        msg(sender, "&7Targets: ★Team, @a, @p, @r, @s, PlayerName. Team suggestions are shown first.");
+    private void help(CommandSender sender, String[] args) {
+        if (args.length == 1) {
+            msg(sender, "&6UOP &f— Command Directory");
+            msg(sender, "&e★ team &7— create, delete, list, info, add, remove, removeall, tp, settings");
+            msg(sender, "&e★ armor &7— set, save, list, delete, give direct/saved/random, remove, weapon");
+            msg(sender, "&e★ checkpoint &7— save, tp, back, list, delete, clear");
+            msg(sender, "&e★ damage &7— global, outgoing, incoming, set, reset, list");
+            msg(sender, "&e★ enchant / disenchant &7— all, armor, equipment, hand, inventory");
+            msg(sender, "&e★ freeze / unfreeze / immortal &7— normal, full, on, off, status, list");
+            msg(sender, "&e★ inv &7— view, set, remove, give, take, clear, swap, backups, record, back, locks");
+            msg(sender, "&e★ name &7— hide, show, glitch, tag");
+            msg(sender, "&e★ protect / permission &7— identity and permission management");
+            msg(sender, "&e★ admin &7— reload, reset all, version");
+            msg(sender, "&7Usage: /uop help <group>");
+            msg(sender, "&7Targets: ★ Team → @a, @p, @r, @s, @e[type=player] → Player names.");
+            return;
+        }
+
+        String group = args[1].toLowerCase(Locale.ROOT);
+        switch (group) {
+            case "team" -> msg(sender, "&f/uop team <create|delete|list|info|add|remove|removeall|tp|settings>");
+            case "armor" -> msg(sender, "&f/uop armor <set|save|list|delete|give direct|give saved|give random|remove|weapon set>");
+            case "checkpoint" -> msg(sender, "&f/uop checkpoint <save|tp|back|list|delete|clear>");
+            case "damage" -> msg(sender, "&f/uop damage <global|outgoing|incoming|set|reset|list>");
+            case "enchant" -> msg(sender, "&f/uop enchant <all|armor|equipment|mainhand|offhand|inventory> <target> <enchantment> <level>");
+            case "disenchant" -> msg(sender, "&f/uop disenchant <all|armor|equipment|hand|inventory> <target> [slot] <enchantment>");
+            case "freeze" -> msg(sender, "&f/uop freeze <normal|full> <target> | /uop unfreeze <target>");
+            case "immortal" -> msg(sender, "&f/uop immortal <on|off|status|list> [target]");
+            case "inv" -> msg(sender, "&f/uop inv <view|set|remove|give|take|clear|swap|backup|restore|backups|backup-delete|record|back|lock|unlock>");
+            case "name" -> msg(sender, "&f/uop name <hide|show|glitch|tag>");
+            case "protect" -> msg(sender, "&f/uop protect <add|remove|list|reset>");
+            case "permission" -> msg(sender, "&f/uop permission <grant|revoke|list|check|reset>");
+            case "admin" -> msg(sender, "&f/uop <reload|reset all|version>");
+            default -> {
+                msg(sender, "&cUnknown help group: " + group);
+                msg(sender, "&7Available: team, armor, checkpoint, damage, enchant, disenchant, freeze, immortal, inv, name, protect, permission, admin");
+            }
+        }
     }
 
     private void armor(CommandSender sender, String[] a) {
@@ -1054,6 +1081,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         try {
             if (a.length == 1) return matching(ROOTS, a[0]);
             String root = a[0].toLowerCase(Locale.ROOT);
+            if (root.equals("help") && a.length == 2) return matching(List.of("team", "armor", "checkpoint", "damage",
+                    "enchant", "disenchant", "freeze", "immortal", "inv", "name", "protect", "permission", "admin"), a[1]);
             if (root.equals("team")) return teamTabs(a);
             if (root.equals("armor")) return armorTabs(a);
             if (root.equals("checkpoint")) return checkpointTabs(a);
