@@ -3,7 +3,7 @@
 This is the target command tree, not a claim that all commands are already implemented.
 
 ## Target notation
-`<target>` = Team name, Minecraft selector or Player name. TAB order: **★ Team names**, then selectors, then online Player names. The star is display-only. Selectors: `@a`, `@p`, `@r`, `@s`, and supported filters. `@e` only for entity-capable operations. No duplicate `everyone`/`nearby` keywords where selectors cover the target. Each argument must show a contextual hint.
+`<target>` = Team name, Minecraft selector or Player name. TAB order: **★ Team names**, then selectors, then online Player names. The star is display-only. Selectors: `@a`, `@p`, `@r`, `@s`, and supported filters. For player-only operations, `@e[type=player]` is the only entity selector suggested. No duplicate `everyone`/`nearby` keywords where selectors cover the target. Each argument must show a contextual hint.
 
 ## Armor
 ```text
@@ -145,4 +145,4 @@ Name glitch dependency must be identified and verified before implementation is 
 Permission administration is OP/console-only by default.
 
 ## Contextual argument hints
-Examples: `[Saved loadout name]`, `[Checkpoint name]`, `[Team name]`, `[Player / selector]`, `[Enchantment]`, `[Enchantment level]`, `[Inventory slot 0-40]`, `[Multiplier 0-10]`. Suggestions must match the exact command position.
+Examples: `[Saved loadout name]`, `[Checkpoint name]`, `[Team name]`, `[Player / selector]`, `[Enchantment]`, `[Enchantment level]`, `[Inventory slot 0-40]`, `[Multiplier 0-10]`. Suggestions must match the exact command position. `/uop help` displays top-level groups; `/uop help <group>` displays that group's command syntax and its group name is TAB-completable.
