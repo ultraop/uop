@@ -396,6 +396,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 return;
             }
             int level = integer(a[5], 1, 5, "Enchantment preset level");
+            if (!kits.materials().contains(a[3].toLowerCase(Locale.ROOT))) {
+                throw new IllegalArgumentException("Material must be iron, gold, diamond, netherite or mixed.");
+            }
             List<String> names = targets.resolveNames(sender, a[6]);
             int success = 0, queued = 0;
             List<String> skipped = new ArrayList<>();
@@ -1158,7 +1161,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             if (root.equals("unfreeze") && a.length == 2) return targets.suggestions(a[1]);
             if (root.equals("immortal")) {
                 if (a.length == 2) return matching(List.of("on", "off", "status", "list"), a[1]);
-                if (a.length == 3) return targets.suggestions(a[2]);
+                if (a.length == 3 && List.of("on", "off", "status").contains(a[1].toLowerCase(Locale.ROOT))) {
+                    return targets.suggestions(a[2]);
+                }
             }
             if (root.equals("inv")) return inventoryTabs(sender, a);
             if (root.equals("name")) return nameTabs(a);
