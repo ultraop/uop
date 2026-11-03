@@ -818,11 +818,15 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                             "/uop inv record <start|stop> <target> | /uop inv record status");
                     return;
                 }
-                List<Player> selected = targets.resolve(sender, a[3]);
-                if (a[2].equalsIgnoreCase("start")) inventory.startRecord(selected);
-                else inventory.stopRecord(selected);
-                msg(sender, "&aInventory history recording " + (a[2].equalsIgnoreCase("start") ? "started" : "stopped")
-                        + " for " + selected.size() + " player(s).");
+                if (a[2].equalsIgnoreCase("start")) {
+                    List<Player> selected = targets.resolve(sender, a[3]);
+                    inventory.startRecord(selected);
+                    msg(sender, "&aInventory history recording started for " + selected.size() + " online player(s).");
+                } else {
+                    List<String> selected = targets.resolveNames(sender, a[3]);
+                    inventory.stopRecordNames(selected);
+                    msg(sender, "&aInventory history recording stopped for " + selected.size() + " profile(s).");
+                }
             }
             case "back" -> {
                 if (a.length != 4) {
@@ -1226,16 +1230,18 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             return matching(List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), a[5]);
         }
         if (a.length == 6 && a[1].equals("set") && !a[4].equals("enchanted")) {
-            return matching(List.of("true", "false"), a[5]);
+            return matching(List.of("true", "false", "on", "off"), a[5]);
         }
         if (a.length == 7 && a[1].equals("set") && a[4].equals("enchanted")) {
-            return matching(List.of("true", "false"), a[6]);
+            return matching(List.of("true", "false", "on", "off"), a[6]);
         }
-        if (a.length == 7 && a[1].equals("set") && !a[4].equals("enchanted") && a[5].equals("true")) {
-            return matching(kits.weaponNames(), a[6]);
+        if (a.length >= 7 && a[1].equals("set") && !a[4].equals("enchanted")
+                && List.of("true", "on").contains(a[5].toLowerCase(Locale.ROOT))) {
+            return matching(kits.weaponNames(), a[a.length - 1]);
         }
-        if (a.length == 8 && a[1].equals("set") && a[4].equals("enchanted") && a[6].equals("true")) {
-            return matching(kits.weaponNames(), a[7]);
+        if (a.length >= 8 && a[1].equals("set") && a[4].equals("enchanted")
+                && List.of("true", "on").contains(a[6].toLowerCase(Locale.ROOT))) {
+            return matching(kits.weaponNames(), a[a.length - 1]);
         }
         if (a.length == 3 && a[1].equals("weapon")) return matching(List.of("set"), a[2]);
         if (a.length == 4 && a[1].equals("weapon") && a[2].equals("set")) return targets.suggestions(a[3]);
@@ -1243,11 +1249,11 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (a.length == 6 && a[1].equals("weapon") && a[2].equals("set") && a[4].equals("enchanted")) {
             return matching(List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), a[5]);
         }
-        if (a.length == 6 && a[1].equals("weapon") && a[2].equals("set") && !a[4].equals("enchanted")) {
-            return matching(kits.weaponNames(), a[5]);
+        if (a.length >= 6 && a[1].equals("weapon") && a[2].equals("set") && !a[4].equals("enchanted")) {
+            return matching(kits.weaponNames(), a[a.length - 1]);
         }
-        if (a.length == 7 && a[1].equals("weapon") && a[2].equals("set") && a[4].equals("enchanted")) {
-            return matching(kits.weaponNames(), a[6]);
+        if (a.length >= 7 && a[1].equals("weapon") && a[2].equals("set") && a[4].equals("enchanted")) {
+            return matching(kits.weaponNames(), a[a.length - 1]);
         }
         if (a.length == 4 && a[1].equals("save")) return playerNamesAndSingleSelectors(a[3]);
         if (a.length == 4 && a[1].equals("give") && a[2].equals("direct")) return matching(kits.materials(), a[3]);
@@ -1291,10 +1297,36 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 ? List.of("all", "armor", "equipment", "hand", "inventory")
                 : List.of("all", "armor", "equipment", "mainhand", "offhand", "inventory"), a[1]);
         if (a.length == 3) return targets.suggestions(a[2]);
-        if (a.length == 4 && remove) return matching(List.of("mending", "unbreaking", "protection", "sharpness", "efficiency", "fortune"), a[3]);
-        if (a.length == 4) return matching(List.of("mending", "unbreaking", "protection", "sharpness", "efficiency", "fortune", "feather_falling", "thorns", "respiration"), a[3]);
-        if (a.length == 5 && !remove) return matching(List.of("1", "2", "3", "4", "5"), a[4]);
+        if (a.length == 4 && remove) {
+            List<String> options = new ArrayList<>(enchantmentNames(a[3]));
+            options.addAll(matching(List.of("mainhand", "offhand", "head", "chest", "legs", "feet"), a[3]));
+            return options;
+        }
+        if (a.length == 5 && remove) return enchantmentNames(a[4]);
+        if (a.length == 4) return enchantmentNames(a[3]);
+        if (a.length == 5) return enchantmentLevels(a[3], a[4]);
         return List.of();
+    }
+
+    private List<String> enchantmentNames(String partial) {
+        List<String> values = new ArrayList<>();
+        for (org.bukkit.enchantments.Enchantment enchantment : org.bukkit.Registry.ENCHANTMENT) {
+            org.bukkit.NamespacedKey key = enchantment.getKey();
+            values.add(key.getNamespace().equals("minecraft") ? key.getKey() : key.toString());
+        }
+        values.sort(String.CASE_INSENSITIVE_ORDER);
+        return matching(values, partial);
+    }
+
+    private List<String> enchantmentLevels(String enchantmentName, String partial) {
+        try {
+            int max = enchants.resolve(enchantmentName).getMaxLevel();
+            List<String> levels = new ArrayList<>();
+            for (int level = 1; level <= max; level++) levels.add(Integer.toString(level));
+            return matching(levels, partial);
+        } catch (IllegalArgumentException ignored) {
+            return List.of();
+        }
     }
 
     private List<String> teamNames(String partial) {
