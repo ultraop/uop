@@ -233,7 +233,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         int applied = 0, queued = 0;
         List<String> noSpace = new ArrayList<>();
         for (String name : selectedNames) {
-            Player player = Bukkit.getPlayerExact(name);
+            Player player = TargetResolver.onlinePlayer(name);
             if (player != null && player.isOnline()) {
                 if (kits.setArmor(player, a[3], mode.value(), includeWeapons, weapons)) applied++;
                 else noSpace.add(name);
