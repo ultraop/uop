@@ -9,6 +9,7 @@ import com.ultraop.uop.service.CheckpointService;
 import com.ultraop.uop.service.DamageService;
 import com.ultraop.uop.service.EnchantService;
 import com.ultraop.uop.service.FreezeImmortalService;
+import com.ultraop.uop.service.PendingActionService;
 import com.ultraop.uop.storage.UopStore;
 import com.ultraop.uop.target.TargetResolver;
 import com.ultraop.uop.team.TeamService;
@@ -26,6 +27,7 @@ public final class UopPlugin extends JavaPlugin {
     private DamageService damage;
     private EnchantService enchants;
     private FreezeImmortalService states;
+    private PendingActionService pending;
 
     @Override
     public void onEnable() {
@@ -34,10 +36,10 @@ public final class UopPlugin extends JavaPlugin {
         PluginCommand root = getCommand("uop");
         if (root == null) throw new IllegalStateException("The /uop command is missing from plugin.yml");
         UopCommand executor = new UopCommand(this, teams, targets, kits, loadouts, checkpoints,
-                damage, enchants, states, profiles);
+                damage, enchants, states, profiles, pending);
         root.setExecutor(executor);
         root.setTabCompleter(executor);
-        getServer().getPluginManager().registerEvents(new GameplayListener(profiles, states, damage), this);
+        getServer().getPluginManager().registerEvents(new GameplayListener(profiles, states, damage, pending), this);
         getLogger().info("UOP enabled: Team, target, checkpoint, damage, enchantment, freeze and immortal services registered.");
     }
 
@@ -52,6 +54,7 @@ public final class UopPlugin extends JavaPlugin {
         damage = new DamageService(store, teams, targets);
         enchants = new EnchantService();
         states = new FreezeImmortalService(profiles);
+        pending = new PendingActionService(store, this, kits, loadouts, checkpoints, enchants);
     }
 
     @Override
