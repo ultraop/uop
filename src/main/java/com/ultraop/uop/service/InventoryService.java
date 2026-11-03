@@ -2,6 +2,7 @@ package com.ultraop.uop.service;
 
 import com.ultraop.uop.storage.UopStore;
 import com.ultraop.uop.team.TeamService;
+import com.ultraop.uop.target.TargetResolver;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -215,7 +216,7 @@ public final class InventoryService {
     private List<Player> onlineRoster(String team, List<String> roster) {
         List<Player> result = new ArrayList<>();
         for (String name : roster) {
-            Player player = plugin.getServer().getPlayerExact(name);
+            Player player = TargetResolver.onlinePlayer(name);
             if (player == null || !player.isOnline()) {
                 throw new IllegalArgumentException("All Team members must be online for inventory swap. Offline: " + name);
             }
