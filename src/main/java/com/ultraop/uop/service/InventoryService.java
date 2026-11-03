@@ -239,16 +239,32 @@ public final class InventoryService {
         return result;
     }
 
-    public void startRecord(List<Player> players) {
+    public int startRecord(List<Player> players) {
+        int started = 0;
+        List<String> failed = new ArrayList<>();
         for (Player player : players) {
             String name = player.getName();
-            recording.add(name.toLowerCase(Locale.ROOT));
-            String history = playerPath(name) + ".history";
-            if (!store.data().contains(history)) store.data().set(history, new ArrayList<>());
-            record(player, true);
+            String key = name.toLowerCase(Locale.ROOT);
+            recording.add(key);
+            try {
+                String history = playerPath(name) + ".history";
+                if (!store.data().contains(history)) store.data().set(history, new ArrayList<>());
+                record(player, true);
+                started++;
+            } catch (RuntimeException ex) {
+                recording.remove(key);
+                lastFingerprints.remove(key);
+                failed.add(name);
+                plugin.getLogger().warning("Could not start inventory history for " + name
+                        + "; other selected players will continue: " + ex.getMessage());
+            }
         }
         persistRecordingState();
         saveStoreSafely("inventory recording start");
+        if (!failed.isEmpty()) {
+            plugin.getLogger().warning("Inventory history did not start for: " + String.join(", ", failed));
+        }
+        return started;
     }
 
     public void stopRecord(List<Player> players) {
