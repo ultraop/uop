@@ -8,6 +8,8 @@ import com.ultraop.uop.service.DamageService;
 import com.ultraop.uop.service.EnchantService;
 import com.ultraop.uop.service.FreezeImmortalService;
 import com.ultraop.uop.service.PendingActionService;
+import com.ultraop.uop.service.InventoryService;
+import org.bukkit.Material;
 import com.ultraop.uop.profile.PlayerProfileService;
 import com.ultraop.uop.target.TargetResolver;
 import com.ultraop.uop.team.TeamService;
@@ -40,12 +42,13 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     private final FreezeImmortalService states;
     private final PlayerProfileService profiles;
     private final PendingActionService pending;
+    private final InventoryService inventory;
 
     public UopCommand(UopPlugin plugin, TeamService teams, TargetResolver targets,
                       ArmorKitService kits, ArmorLoadoutService loadouts,
                       CheckpointService checkpoints, DamageService damage,
                       EnchantService enchants, FreezeImmortalService states,
-                      PlayerProfileService profiles, PendingActionService pending) {
+                      PlayerProfileService profiles, PendingActionService pending, InventoryService inventory) {
         this.plugin = plugin;
         this.teams = teams;
         this.targets = targets;
@@ -57,6 +60,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         this.states = states;
         this.profiles = profiles;
         this.pending = pending;
+        this.inventory = inventory;
     }
 
     private boolean admin(CommandSender sender) {
@@ -516,19 +520,175 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
 
     private void inventory(CommandSender sender, String[] a) {
         require(sender, "uop.inv");
-        if (a.length != 4 || !(a[1].equalsIgnoreCase("lock") || a[1].equalsIgnoreCase("unlock"))) {
-            hint(sender, "Choose lock/unlock and inventory/armor/drop, then target",
-                    "/uop inv <lock|unlock> <inventory|armor|drop> <target>");
+        if (a.length < 2) {
+            hint(sender, "Choose inventory operation",
+                    "/uop inv <view|set|remove|give|take|clear|swap|backup|restore|backups|backup-delete|record|back|lock|unlock>");
             return;
         }
-        String lock = a[2].toLowerCase(Locale.ROOT);
-        if (!List.of("inventory", "armor", "drop").contains(lock)) {
-            throw new IllegalArgumentException("Lock type must be inventory, armor or drop.");
+        switch (a[1].toLowerCase(Locale.ROOT)) {
+            case "view" -> {
+                if (a.length != 3) {
+                    hint(sender, "Select ★ Team / Player / selector", "/uop inv view <target>");
+                    return;
+                }
+                List<Player> selected = targets.resolve(sender, a[2]);
+                for (Player player : selected) {
+                    for (String line : inventory.describe(player)) msg(sender, "&f" + line);
+                }
+            }
+            case "set" -> {
+                if (a.length != 5 && a.length != 6) {
+                    hint(sender, "Select target, slot 0-40, item and optional amount", "/uop inv set <target> <slot> <item> [amount]");
+                    return;
+                }
+                int slot = integer(a[3], 0, 40, "Inventory slot");
+                Material material = Material.matchMaterial(a[4]);
+                if (material == null || material.isAir()) throw new IllegalArgumentException("Unknown item: " + a[4]);
+                int amount = a.length == 6 ? integer(a[5], 1, 99, "Amount") : 1;
+                List<Player> selected = targets.resolve(sender, a[2]);
+                for (Player player : selected) inventory.set(player, slot, material, amount);
+                msg(sender, "&aSet slot " + slot + " for " + selected.size() + " player(s).");
+            }
+            case "remove" -> {
+                if (a.length != 4) {
+                    hint(sender, "Select target and inventory slot", "/uop inv remove <target> <slot>");
+                    return;
+                }
+                int slot = integer(a[3], 0, 40, "Inventory slot");
+                List<Player> selected = targets.resolve(sender, a[2]);
+                for (Player player : selected) inventory.remove(player, slot);
+                msg(sender, "&aRemoved slot " + slot + " for " + selected.size() + " player(s).");
+            }
+            case "give", "take" -> {
+                if (a.length != 4 && a.length != 5) {
+                    hint(sender, "Select target, item and optional amount", "/uop inv " + a[1] + " <target> <item> [amount]");
+                    return;
+                }
+                Material material = Material.matchMaterial(a[3]);
+                if (material == null || material.isAir()) throw new IllegalArgumentException("Unknown item: " + a[3]);
+                int amount = a.length == 5 ? integer(a[4], 1, 99, "Amount") : 1;
+                List<Player> selected = targets.resolve(sender, a[2]);
+                int affected = 0, leftovers = 0;
+                for (Player player : selected) {
+                    if (a[1].equalsIgnoreCase("give")) {
+                        leftovers += inventory.give(player, material, amount);
+                        affected++;
+                    } else {
+                        affected += inventory.take(player, material, amount);
+                    }
+                }
+                if (a[1].equalsIgnoreCase("give")) {
+                    msg(sender, "&aItem given to " + affected + " player(s). Leftover items because of full inventories: " + leftovers + ".");
+                } else {
+                    msg(sender, "&aRemoved " + affected + " item(s) in total.");
+                }
+            }
+            case "clear" -> {
+                if (a.length != 3) {
+                    hint(sender, "Select ★ Team / Player / selector", "/uop inv clear <target>");
+                    return;
+                }
+                List<Player> selected = targets.resolve(sender, a[2]);
+                for (Player player : selected) inventory.clear(player);
+                msg(sender, "&aCleared inventories for " + selected.size() + " player(s).");
+            }
+            case "swap" -> {
+                if (a.length < 3) {
+                    hint(sender, "Choose Player-to-Player or Team-to-Team swap", "/uop inv swap <player|team> ...");
+                    return;
+                }
+                if (a[2].equalsIgnoreCase("player")) {
+                    if (a.length != 5) throw new IllegalArgumentException("Usage: /uop inv swap player <player1> <player2>");
+                    List<Player> first = targets.resolve(sender, a[3]);
+                    List<Player> second = targets.resolve(sender, a[4]);
+                    if (first.size() != 1 || second.size() != 1) throw new IllegalArgumentException("Each swap side must resolve to exactly one Player.");
+                    inventory.swap(first.get(0), second.get(0));
+                    msg(sender, "&aComplete inventories swapped.");
+                } else if (a[2].equalsIgnoreCase("team")) {
+                    if (a.length != 5) throw new IllegalArgumentException("Usage: /uop inv swap team <team1> <team2>");
+                    int count = inventory.swapTeams(TargetResolver.clean(a[3]), TargetResolver.clean(a[4]));
+                    msg(sender, "&aInventories swapped across " + count + " deterministic Team pair(s).");
+                } else {
+                    hint(sender, "Choose player or team", "/uop inv swap <player|team> ...");
+                }
+            }
+            case "backup" -> {
+                if (a.length != 4) {
+                    hint(sender, "Select online target and backup name", "/uop inv backup <target> <backup_name>");
+                    return;
+                }
+                List<Player> selected = targets.resolve(sender, a[2]);
+                for (Player player : selected) inventory.backup(player, a[3]);
+                msg(sender, "&aCreated inventory backup for " + selected.size() + " player(s).");
+            }
+            case "restore" -> {
+                if (a.length != 4) {
+                    hint(sender, "Select target and saved backup name", "/uop inv restore <target> <backup_name>");
+                    return;
+                }
+                List<Player> selected = targets.resolve(sender, a[2]);
+                int restored = 0;
+                for (Player player : selected) if (inventory.restore(player, a[3])) restored++;
+                msg(sender, "&aRestored backup for " + restored + " player(s).");
+            }
+            case "backups" -> {
+                if (a.length != 3) {
+                    hint(sender, "Select Player or Team", "/uop inv backups <target>");
+                    return;
+                }
+                List<String> names = targets.resolveNames(sender, a[2]);
+                for (String name : names) msg(sender, "&f" + name + " backups: &e" + String.join(", ", inventory.backups(name)));
+            }
+            case "backup-delete" -> {
+                if (a.length != 4) throw new IllegalArgumentException("Usage: /uop inv backup-delete <target> <backup_name>");
+                List<String> names = targets.resolveNames(sender, a[2]);
+                for (String name : names) inventory.deleteBackup(name, a[3]);
+                msg(sender, "&aDeleted backup '" + a[3] + "' from " + names.size() + " profile(s).");
+            }
+            case "record" -> {
+                if (a.length == 3 && a[2].equalsIgnoreCase("status")) {
+                    msg(sender, "&fRecording inventory history: &e" + String.join(", ", inventory.recordingNames()));
+                    return;
+                }
+                if (a.length != 4 || !(a[2].equalsIgnoreCase("start") || a[2].equalsIgnoreCase("stop"))) {
+                    hint(sender, "Choose start/stop and a target, or record status",
+                            "/uop inv record <start|stop> <target> | /uop inv record status");
+                    return;
+                }
+                List<Player> selected = targets.resolve(sender, a[3]);
+                if (a[2].equalsIgnoreCase("start")) inventory.startRecord(selected);
+                else inventory.stopRecord(selected);
+                msg(sender, "&aInventory history recording " + (a[2].equalsIgnoreCase("start") ? "started" : "stopped")
+                        + " for " + selected.size() + " player(s).");
+            }
+            case "back" -> {
+                if (a.length != 4) {
+                    hint(sender, "Select target and look-back duration (e.g. 30s, 5m, 1h)", "/uop inv back <target> <time>");
+                    return;
+                }
+                List<Player> selected = targets.resolve(sender, a[2]);
+                int restored = 0;
+                for (Player player : selected) if (inventory.back(player, a[3])) restored++;
+                msg(sender, "&aRestored inventory history for " + restored + " player(s).");
+            }
+            case "lock", "unlock" -> {
+                if (a.length != 4) {
+                    hint(sender, "Choose inventory/armor/drop lock and a target",
+                            "/uop inv <lock|unlock> <inventory|armor|drop> <target>");
+                    return;
+                }
+                String lock = a[2].toLowerCase(Locale.ROOT);
+                if (!List.of("inventory", "armor", "drop").contains(lock)) {
+                    throw new IllegalArgumentException("Lock type must be inventory, armor or drop.");
+                }
+                List<String> names = targets.resolveNames(sender, a[3]);
+                boolean enabled = a[1].equalsIgnoreCase("lock");
+                for (String name : names) profiles.lock(name, lock, enabled);
+                msg(sender, "&a" + lock + " lock " + (enabled ? "enabled" : "disabled") + " for " + names.size() + " profile(s).");
+            }
+            default -> hint(sender, "Choose inventory operation",
+                    "/uop inv <view|set|remove|give|take|clear|swap|backup|restore|backups|backup-delete|record|back|lock|unlock>");
         }
-        List<String> names = targets.resolveNames(sender, a[3]);
-        boolean enabled = a[1].equalsIgnoreCase("lock");
-        for (String name : names) profiles.lock(name, lock, enabled);
-        msg(sender, "&a" + lock + " lock " + (enabled ? "enabled" : "disabled") + " for " + names.size() + " profile(s).");
     }
 
     private void reset(CommandSender sender, String[] a) {
