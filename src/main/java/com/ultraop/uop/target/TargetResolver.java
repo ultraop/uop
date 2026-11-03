@@ -26,13 +26,31 @@ public final class TargetResolver {
         return value;
     }
 
+    /** Commas inside selector brackets are options, not target separators. */
+    private List<String> splitExpressions(String input) {
+        List<String> parts = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        int bracketDepth = 0;
+        for (char c : input.toCharArray()) {
+            if (c == '[') bracketDepth++;
+            if (c == ']' && bracketDepth > 0) bracketDepth--;
+            if (c == ',' && bracketDepth == 0) {
+                if (!current.isEmpty()) parts.add(current.toString().trim());
+                current.setLength(0);
+            } else {
+                current.append(c);
+            }
+        }
+        if (!current.isEmpty()) parts.add(current.toString().trim());
+        return parts;
+    }
+
     /** Resolves online players only; Team expressions expand to online roster members. */
     public List<Player> resolve(CommandSender sender, String expression) {
         String input = clean(expression);
         if (input.isBlank()) throw new IllegalArgumentException("Target is required. [Team / Player / selector]");
         Map<String, Player> result = new LinkedHashMap<>();
-        for (String part : input.split(",")) {
-            String token = part.trim();
+        for (String token : splitExpressions(input)) {
             if (token.isEmpty()) continue;
             if (teams.exists(token)) {
                 for (Player player : teams.onlineMembers(token)) result.putIfAbsent(player.getUniqueId().toString(), player);
@@ -60,8 +78,7 @@ public final class TargetResolver {
         String input = clean(expression);
         if (input.isBlank()) throw new IllegalArgumentException("Target is required. [Team / Player / selector]");
         Map<String, String> result = new LinkedHashMap<>();
-        for (String part : input.split(",")) {
-            String token = part.trim();
+        for (String token : splitExpressions(input)) {
             if (token.isEmpty()) continue;
             if (teams.exists(token)) {
                 for (String name : teams.members(token)) result.putIfAbsent(name.toLowerCase(Locale.ROOT), name);
@@ -74,11 +91,8 @@ public final class TargetResolver {
                     throw new IllegalArgumentException("Invalid selector '" + token + "': " + ex.getMessage());
                 }
             } else {
-                for (String name : token.split(",")) {
-                    String candidate = name.trim();
-                    TeamService.validatePlayerName(candidate);
-                    result.putIfAbsent(candidate.toLowerCase(Locale.ROOT), candidate);
-                }
+                TeamService.validatePlayerName(token);
+                result.putIfAbsent(token.toLowerCase(Locale.ROOT), token);
             }
         }
         if (result.isEmpty()) throw new IllegalArgumentException("No targets matched: " + input);
