@@ -750,15 +750,60 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 if (a.length == 2) return matching(List.of("on", "off", "status", "list"), a[1]);
                 if (a.length == 3) return targets.suggestions(a[2]);
             }
-            if (root.equals("inv")) {
-                if (a.length == 2) return matching(List.of("lock", "unlock"), a[1]);
-                if (a.length == 3) return matching(List.of("inventory", "armor", "drop"), a[2]);
-                if (a.length == 4) return targets.suggestions(a[3]);
-            }
+            if (root.equals("inv")) return inventoryTabs(a);
             if (root.equals("reset") && a.length == 2) return matching(List.of("all"), a[1]);
         } catch (Exception ignored) {
             return List.of();
         }
+        return List.of();
+    }
+
+
+    private List<String> inventoryTabs(String[] a) {
+        if (a.length == 2) return matching(List.of("view", "set", "remove", "give", "take", "clear",
+                "swap", "backup", "restore", "backups", "backup-delete", "record", "back", "lock", "unlock"), a[1]);
+        String action = a[1].toLowerCase(Locale.ROOT);
+        if (List.of("view", "clear", "backups", "back").contains(action) && a.length == 3) return targets.suggestions(a[2]);
+        if (action.equals("set")) {
+            if (a.length == 3) return targets.suggestions(a[2]);
+            if (a.length == 4) return matching(java.util.stream.IntStream.rangeClosed(0, 40).mapToObj(String::valueOf).toList(), a[3]);
+            if (a.length == 5) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[4]);
+            if (a.length == 6) return matching(List.of("1", "16", "32", "64"), a[5]);
+        }
+        if (action.equals("remove")) {
+            if (a.length == 3) return targets.suggestions(a[2]);
+            if (a.length == 4) return matching(java.util.stream.IntStream.rangeClosed(0, 40).mapToObj(String::valueOf).toList(), a[3]);
+        }
+        if (List.of("give", "take").contains(action)) {
+            if (a.length == 3) return targets.suggestions(a[2]);
+            if (a.length == 4) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[3]);
+            if (a.length == 5) return matching(List.of("1", "16", "32", "64"), a[4]);
+        }
+        if (action.equals("swap")) {
+            if (a.length == 3) return matching(List.of("player", "team"), a[2]);
+            if (a.length == 4 && a[2].equalsIgnoreCase("player")) return targets.suggestions(a[3]);
+            if (a.length == 5 && a[2].equalsIgnoreCase("player")) return targets.suggestions(a[4]);
+            if (a.length == 4 && a[2].equalsIgnoreCase("team")) return teamNames(a[3]);
+            if (a.length == 5 && a[2].equalsIgnoreCase("team")) return teamNames(a[4]);
+        }
+        if (List.of("backup", "restore", "backup-delete").contains(action)) {
+            if (a.length == 3) return targets.suggestions(a[2]);
+            if (a.length == 4 && !action.equals("backup")) {
+                String target = TargetResolver.clean(a[3 - 1]);
+                List<String> names = targets.resolveNames(Bukkit.getConsoleSender(), target);
+                if (names.isEmpty()) return List.of();
+                return matching(inventory.backups(names.get(0)), a[3]);
+            }
+        }
+        if (action.equals("record")) {
+            if (a.length == 3) return matching(List.of("start", "stop", "status"), a[2]);
+            if (a.length == 4 && List.of("start", "stop").contains(a[2])) return targets.suggestions(a[3]);
+        }
+        if (action.equals("lock") || action.equals("unlock")) {
+            if (a.length == 3) return matching(List.of("inventory", "armor", "drop"), a[2]);
+            if (a.length == 4) return targets.suggestions(a[3]);
+        }
+        if (action.equals("back") && a.length == 4) return matching(List.of("10s", "30s", "1m", "5m", "10m", "30m", "1h"), a[3]);
         return List.of();
     }
 
