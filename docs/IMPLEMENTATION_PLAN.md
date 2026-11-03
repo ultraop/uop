@@ -9,7 +9,8 @@
 
 ## Phase 1 — Core platform
 - [x] Plugin bootstrap and service wiring.
-- [x] Schema-versioned YAML storage with atomic writes.\n- [ ] Automated migration backups and schema migration tests.
+- [x] Schema-versioned YAML storage with atomic writes.
+- [ ] Automated migration backups and schema migration tests.
 - [x] Shared TargetResolver for Team names, selectors and Player names.
 - [x] Contextual argument hints and dynamic TAB suggestions for implemented command branches.
 - [x] Central execution-time permission checks and command registration.
@@ -29,7 +30,8 @@
 - [x] Damage global/outgoing/incoming/exact pair.
 - [x] Enchant/disenchant scopes for online targets with offline Team actions queued.
 - [x] Normal/full freeze.
-- [x] Inventory operations, Player/Team swap, backup, history and locks.\n- [x] Persist active history sessions across reconnect/restart; retry failed samples without cancelling the sampler.
+- [x] Inventory operations, Player/Team swap, backup, history and locks.
+- [x] Persist active history sessions across reconnect/restart; retry failed samples without cancelling the sampler.
 - [x] Name visibility/tags, protection and permissions.
 - [ ] Complete Team support audit, including offline inventory operations and edge cases.
 
@@ -52,7 +54,8 @@
 - [ ] Legacy data migration test with pre-migration backup.
 - [ ] Paper 1.21.11 live server tests.
 - [x] CI verifies JAR descriptor, plugin class and checksum.
-- [x] CI publishes the built JAR artifact.\n- [ ] Mark release-ready only after live Paper server testing.
+- [x] CI publishes the built JAR artifact.
+- [ ] Mark release-ready only after live Paper server testing.
 
 ## Regression checklist
 - Armor replacement does not drop/lose old items.
