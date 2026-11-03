@@ -5,54 +5,54 @@
 - [x] Define upgraded command grammar and target UX.
 - [x] Establish new package/build/bootstrap documentation.
 - [ ] Add Gradle wrapper and run a clean Paper build.
-- [ ] Add CI validation and baseline tests.
+- [x] Add CI JAR validation and core validation tests.
 
 ## Phase 1 — Core platform
-- [ ] Plugin bootstrap and service registry.
-- [ ] Versioned storage, atomic writes, backups.
+- [x] Plugin bootstrap and service wiring.
+- [x] Schema-versioned YAML storage with atomic writes.\n- [ ] Automated migration backups and schema migration tests.
 - [ ] Shared TargetResolver for Team names, selectors and Player names.
-- [ ] Contextual argument hints and dynamic TAB suggestions.
-- [ ] Central permission checks and command registry.
+- [x] Contextual argument hints and dynamic TAB suggestions for implemented command branches.
+- [x] Central execution-time permission checks and command registration.
 - [ ] Lifecycle/reload tests.
 
 ## Phase 2 — Team and identity
-- [ ] Team CRUD, member add/remove/removeall, info/list and friendly fire.
-- [ ] Username-keyed persistent roster.
-- [ ] Independent persistent PlayerProfile.
-- [ ] Same-name reconnect restores membership and durable profile settings.
+- [x] Team CRUD, member add/remove/removeall, info/list and friendly fire.
+- [x] Username-keyed persistent roster.
+- [x] Independent persistent PlayerProfile.
+- [x] Same-name reconnect retains membership and profile-keyed durable settings.
 - [ ] Explicit cross-Team move and duplicate-membership rules.
 - [ ] Offline-mode spoofing risk documentation and UUID-aware option.
 
 ## Phase 3 — Legacy feature parity
 - [x] Armor set/save/list/delete/saved/random give, classic weapon set and safe remove.
-- [ ] Full checkpoint snapshot and restore.
+- [x] Full checkpoint snapshot and restore.
 - [ ] Damage global/outgoing/incoming/exact pair.
-- [ ] Enchant/disenchant scopes.
-- [ ] Normal/full freeze.
+- [x] Enchant/disenchant scopes for online targets with offline Team actions queued.
+- [x] Normal/full freeze.
 - [x] Inventory operations, Player/Team swap, backup, history and locks.
 - [ ] Name visibility/tags, protection and permissions.
-- [ ] Team support for every compatible service.
+- [ ] Complete Team support audit, including offline inventory operations and edge cases.
 
 ## Phase 4 — Requested upgrades
-- [ ] Direct enchanted kit: iron/gold/diamond/netherite/mixed.
-- [ ] Enchantment preset levels 1–5, compatibility table and tests.
-- [ ] Team armor distribution.
-- [ ] Team-to-Team inventory swap with validation and rollback.
-- [ ] Team checkpoint save/restore and offline reporting.
-- [ ] Team-vs-Player and Team-vs-Team damage rules.
+- [x] Direct enchanted kit: iron/gold/diamond/netherite/mixed.
+- [x] Enchantment preset levels 1–5 with compatible item-specific enchantments.
+- [x] Team armor distribution with offline actions queued.
+- [x] Team-to-Team inventory swap with validation and rollback.
+- [x] Team checkpoint save/restore and offline reporting/queued restore.
+- [x] Team-vs-Player and Team-vs-Team damage rules.
 - [x] Immortal Player/Team persistent profile state and lethal-damage prevention.
 - [x] Independent inventory, armor and drop locks.
 - [ ] Name glitch only after dependency identified and verified.
 
 ## Phase 5 — Hardening and release
-- [ ] Command permission and argument audit.
-- [ ] TAB/hint audit across every argument.
+- [ ] Final command permission and argument audit.
+- [ ] Final TAB/hint audit across every argument and selector filter.
 - [ ] Selector edge-case tests.
 - [ ] No-partial-update tests for bulk Team operations.
 - [ ] Legacy data migration test with pre-migration backup.
 - [ ] Paper 1.21.11 live server tests.
-- [ ] Verify JAR descriptor, plugin class and checksum.
-- [ ] Publish CI artifact; mark only verified features as implemented.
+- [x] CI verifies JAR descriptor, plugin class and checksum.
+- [x] CI publishes the built JAR artifact.\n- [ ] Mark release-ready only after live Paper server testing.
 
 ## Regression checklist
 - Armor replacement does not drop/lose old items.
