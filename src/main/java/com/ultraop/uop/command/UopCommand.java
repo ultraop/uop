@@ -97,7 +97,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         try {
             if (args.length == 0) {
-                help(sender);
+                help(sender, args);
                 return true;
             }
             switch (args[0].toLowerCase(Locale.ROOT)) {
