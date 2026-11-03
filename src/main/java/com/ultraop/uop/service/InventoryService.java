@@ -338,7 +338,8 @@ public final class InventoryService {
         Map<String, Object> state = new LinkedHashMap<>();
         state.put("contents", cloneItems(inventory.getStorageContents()));
         state.put("armor", cloneItems(inventory.getArmorContents()));
-        state.put("offhand", inventory.getItemInOffHand());
+        ItemStack offhand = inventory.getItemInOffHand();
+        state.put("offhand", offhand == null ? null : offhand.clone());
         state.put("held-slot", inventory.getHeldItemSlot());
         return state;
     }
