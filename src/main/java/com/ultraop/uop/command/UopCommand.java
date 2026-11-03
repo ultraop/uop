@@ -366,8 +366,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 msg(sender, "&aDamage rule reset.");
             }
             case "list" -> {
-                msg(sender, "&fGlobal multiplier: &e" + damage.global());
-                msg(sender, "&7Detailed scoped rules are stored in plugins/UOP/data/uop.yml.");
+                for (String rule : damage.describeRules()) msg(sender, "&f" + rule);
             }
             default -> hint(sender, "Choose damage rule", "/uop damage <global|outgoing|incoming|set|reset|list>");
         }
