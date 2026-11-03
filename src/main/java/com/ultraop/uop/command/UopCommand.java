@@ -142,9 +142,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             msg(sender, "&e★ team &7— create, delete, list, info, add, remove, removeall, tp, settings");
             msg(sender, "&e★ armor &7— set, save, list, delete, give direct/saved/random, remove, weapon");
             msg(sender, "&e★ checkpoint &7— save, tp, back, list, delete, clear");
-            msg(sender, "&e★ damage &7— global, outgoing, incoming, set, reset, list");
+            msg(sender, "&e★ damage &7— global, outgoing, incoming, set/pair, reset, list");
             msg(sender, "&e★ enchant / disenchant &7— all, armor, equipment, hand, inventory");
-            msg(sender, "&e★ freeze / unfreeze / immortal &7— normal, full, on, off, status, list");
+            msg(sender, "&e★ freeze / unfreeze &7— normal/full; &eimmortal &7— on/off/status/list");
             msg(sender, "&e★ inv &7— view, set, remove, give, take, clear, swap, backups, record, back, locks");
             msg(sender, "&e★ name &7— hide, show, glitch, tag");
             msg(sender, "&e★ protect / permission &7— identity and permission management");
@@ -182,7 +182,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             case "damage" -> {
                 msg(sender, "&f/uop damage global <0-10>");
                 msg(sender, "&f/uop damage outgoing|incoming <target> <0-10>");
-                msg(sender, "&f/uop damage set <attacker_target> <victim_target> <0-10>");
+                msg(sender, "&f/uop damage set|pair <attacker_target> <victim_target> <0-10>");
                 msg(sender, "&f/uop damage reset global|all");
                 msg(sender, "&f/uop damage reset outgoing|incoming <target>");
                 msg(sender, "&f/uop damage reset pair <attacker_target> <victim_target> | list");
