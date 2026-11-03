@@ -24,12 +24,12 @@
 - [ ] Offline-mode spoofing risk documentation and UUID-aware option.
 
 ## Phase 3 — Legacy feature parity
-- [ ] Armor set/save/list/delete/saved/random give.
+- [x] Armor set/save/list/delete/saved/random give, classic weapon set and safe remove.
 - [ ] Full checkpoint snapshot and restore.
 - [ ] Damage global/outgoing/incoming/exact pair.
 - [ ] Enchant/disenchant scopes.
 - [ ] Normal/full freeze.
-- [ ] Inventory operations, backup, history and locks.
+- [x] Inventory operations, Player/Team swap, backup, history and locks.
 - [ ] Name visibility/tags, protection and permissions.
 - [ ] Team support for every compatible service.
 
@@ -40,8 +40,8 @@
 - [ ] Team-to-Team inventory swap with validation and rollback.
 - [ ] Team checkpoint save/restore and offline reporting.
 - [ ] Team-vs-Player and Team-vs-Team damage rules.
-- [ ] Immortal Player/Team service.
-- [ ] Independent inventory, armor and drop locks.
+- [x] Immortal Player/Team persistent profile state and lethal-damage prevention.
+- [x] Independent inventory, armor and drop locks.
 - [ ] Name glitch only after dependency identified and verified.
 
 ## Phase 5 — Hardening and release
