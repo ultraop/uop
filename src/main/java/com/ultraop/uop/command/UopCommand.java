@@ -137,16 +137,20 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
 
     private void help(CommandSender sender) {
-        msg(sender, "&fUOP command groups:");
-        msg(sender, "&e★ armor &7— saved loadouts and direct OP kits");
-        msg(sender, "&e★ checkpoint &7— save/list/restore full player state");
-        msg(sender, "&e★ damage &7— player/team damage rules");
-        msg(sender, "&e★ enchant / disenchant &7— item enchantment management");
-        msg(sender, "&e★ freeze / unfreeze / immortal &7— player/team state controls");
-        msg(sender, "&e★ team &7— persistent teams and friendly fire");
-        msg(sender, "&e★ inv &7— inventory locks");
-        msg(sender, "&ehelp, reload, reset, version");
-        msg(sender, "&7Targets: ★Team, @a, @p, @r, @s, PlayerName. Team suggestions are shown first.");
+        msg(sender, "&6UOP &f— Command Directory");
+        msg(sender, "&e★ TEAM &7/team <create|delete|list|info|add|remove|removeall|tp|settings>");
+        msg(sender, "&e★ ARMOR &7/armor <set|save|list|delete|give|remove|weapon>");
+        msg(sender, "&e★ CHECKPOINT &7/checkpoint <save|tp|back|list|delete|clear>");
+        msg(sender, "&e★ DAMAGE &7/damage <global|outgoing|incoming|set|reset|list>");
+        msg(sender, "&e★ ENCHANTMENT &7/enchant|disenchant <scope> <target> ...");
+        msg(sender, "&e★ PLAYER STATE &7/freeze|unfreeze|immortal <action> <target>");
+        msg(sender, "&e★ INVENTORY &7/inv <view|set|remove|give|take|clear|swap|backup|restore|record|back|lock|unlock>");
+        msg(sender, "&e★ NAME &7/name <hide|show|glitch|tag>");
+        msg(sender, "&e★ PROTECTION &7/protect <add|remove|list|reset>");
+        msg(sender, "&e★ PERMISSIONS &7/permission <grant|revoke|list|check|reset>");
+        msg(sender, "&e★ ADMIN &7/help | /uop reload | /uop reset all | /uop version");
+        msg(sender, "&7Target TAB order: ★ Team names → @ selectors → online Player names.");
+        msg(sender, "&7Use /uop help <group> for detailed syntax. Permissions are checked when commands execute.");
     }
 
     private void armor(CommandSender sender, String[] a) {
