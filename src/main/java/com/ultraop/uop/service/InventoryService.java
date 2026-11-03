@@ -28,6 +28,7 @@ public final class InventoryService {
     private final TeamService teams;
     private final Set<String> recording = new HashSet<>();
     private final Map<String, String> lastFingerprints = new HashMap<>();
+    private boolean persistencePending;
 
     public InventoryService(JavaPlugin plugin, UopStore store, TeamService teams) {
         this.plugin = plugin;
@@ -247,7 +248,7 @@ public final class InventoryService {
             record(player, true);
         }
         persistRecordingState();
-        store.save();
+        saveStoreSafely("inventory recording start");
     }
 
     public void stopRecord(List<Player> players) {
@@ -261,7 +262,22 @@ public final class InventoryService {
             lastFingerprints.remove(key);
         }
         persistRecordingState();
-        store.save();
+        saveStoreSafely("inventory recording stop");
+    }
+
+    private void saveStoreSafely(String context) {
+        boolean wasPending = persistencePending;
+        try {
+            store.save();
+            persistencePending = false;
+            if (wasPending) plugin.getLogger().info("UOP data persistence recovered; pending inventory history is saved.");
+        } catch (RuntimeException ex) {
+            persistencePending = true;
+            if (!wasPending) {
+                plugin.getLogger().severe("Could not save UOP data during " + context
+                        + "; the sampler will retry automatically: " + ex.getMessage());
+            }
+        }
     }
 
     public List<String> recordingNames() {
@@ -269,7 +285,7 @@ public final class InventoryService {
     }
 
     public void tickHistory() {
-        boolean changed = false;
+        boolean changed = persistencePending;
         for (String name : new ArrayList<>(recording)) {
             Player player = plugin.getServer().getOnlinePlayers().stream()
                     .filter(candidate -> candidate.getName().equalsIgnoreCase(name))
@@ -289,14 +305,7 @@ public final class InventoryService {
                 lastFingerprints.remove(name);
             }
         }
-        if (changed) {
-            try {
-                store.save();
-            } catch (RuntimeException ex) {
-                // Keep the scheduler alive so the next sampling cycle can retry persistence.
-                plugin.getLogger().severe("Could not persist inventory history this cycle: " + ex.getMessage());
-            }
-        }
+        if (changed || persistencePending) saveStoreSafely("inventory history sampling");
     }
 
     private boolean record(Player player, boolean force) {
