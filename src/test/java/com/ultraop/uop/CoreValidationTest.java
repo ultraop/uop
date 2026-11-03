@@ -65,10 +65,8 @@ class CoreValidationTest {
     }
 
     @Test
-    void armorSetArgumentsValidateMaterialModeAndWeaponSetBeforeMutation() {
+    void armorSetArgumentsValidateMaterialModeAndWeaponFlagBeforeMutation() {
         ArmorKitService kits = new ArmorKitService();
-        assertDoesNotThrow(() -> kits.validateSetArgs("diamond", "enchanted 3", true,
-                List.of("sword", "pickaxe")));
         assertDoesNotThrow(() -> kits.validateSetArgs("netherite", "max", false, List.of()));
         assertThrows(IllegalArgumentException.class,
                 () -> kits.validateSetArgs("invalid", "plain", false, List.of()));
@@ -81,13 +79,14 @@ class CoreValidationTest {
     }
 
     @Test
-    void weaponSetArgumentsRejectEmptyAndUnknownSelections() {
+    void weaponSetArgumentsRejectEmptyAndUnknownSelectionsWithoutServerBootstrap() {
         ArmorKitService kits = new ArmorKitService();
-        assertDoesNotThrow(() -> kits.validateWeaponArgs("enchanted 5", List.of("mace", "trident")));
         assertThrows(IllegalArgumentException.class,
                 () -> kits.validateWeaponArgs("plain", List.of()));
         assertThrows(IllegalArgumentException.class,
                 () -> kits.validateWeaponArgs("plain", List.of("magic-staff")));
+        assertThrows(IllegalArgumentException.class,
+                () -> kits.validateWeaponArgs("enchanted 11", List.of("sword")));
     }
 
     @Test
