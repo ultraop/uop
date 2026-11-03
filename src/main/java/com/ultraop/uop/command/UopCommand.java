@@ -1259,12 +1259,15 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         }
         if (a.length >= 4 && List.of("grant", "revoke").contains(a[1])) {
             return matching(List.of("uop.*", "uop.armor", "uop.checkpoint", "uop.damage", "uop.enchant",
-                    "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name", "uop.protect", "all"), a[a.length - 1]);
+                    "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name", "uop.protect",
+                    "uop.permission", "uop.admin", "all"), a[a.length - 1]);
         }
         if (a.length == 4 && a[1].equals("check")) return matching(List.of("uop.*", "uop.armor", "uop.checkpoint",
                 "uop.damage", "uop.enchant", "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name",
                 "uop.protect", "uop.permission", "uop.admin"), a[3]);
-        if (a.length == 4 && a[1].equals("reset")) return matching(List.of("all", "uop.*", "uop.armor", "uop.freeze", "uop.inv"), a[3]);
+        if (a.length == 4 && a[1].equals("reset")) return matching(List.of("all", "uop.*", "uop.armor",
+                "uop.checkpoint", "uop.damage", "uop.enchant", "uop.freeze", "uop.immortal", "uop.team",
+                "uop.inv", "uop.name", "uop.protect", "uop.permission", "uop.admin"), a[3]);
         return List.of();
     }
 
