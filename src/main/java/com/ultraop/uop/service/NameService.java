@@ -1,6 +1,7 @@
 package com.ultraop.uop.service;
 
 import com.ultraop.uop.storage.UopStore;
+import com.ultraop.uop.target.TargetResolver;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
@@ -34,7 +35,7 @@ public final class NameService {
     public void hide(String playerName) {
         store.data().set(playerPath(playerName) + ".hidden", true);
         store.save();
-        Player player = Bukkit.getPlayerExact(playerName);
+        Player player = TargetResolver.onlinePlayer(playerName);
         if (player != null) refresh(player);
     }
 
