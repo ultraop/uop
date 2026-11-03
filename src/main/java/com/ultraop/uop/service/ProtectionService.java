@@ -22,7 +22,7 @@ public final class ProtectionService {
         return "protection.entries." + playerName.toLowerCase(Locale.ROOT);
     }
 
-    public void add(Player player, String mode) {
+    public synchronized void add(Player player, String mode) {
         String normalized = normalizeMode(mode);
         String address = player.getAddress() == null ? "" : ip(player.getAddress().getAddress());
         if ((normalized.equals("ip") || normalized.equals("both")) && address.isBlank()) {
@@ -36,12 +36,12 @@ public final class ProtectionService {
         store.save();
     }
 
-    public void remove(String playerName) {
+    public synchronized void remove(String playerName) {
         store.data().set(base(playerName), null);
         store.save();
     }
 
-    public Set<String> list() {
+    public synchronized Set<String> list() {
         var section = store.data().getConfigurationSection("protection.entries");
         if (section == null) return Set.of();
         Set<String> result = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
@@ -51,12 +51,12 @@ public final class ProtectionService {
         return result;
     }
 
-    public void reset() {
+    public synchronized void reset() {
         store.data().set("protection.entries", null);
         store.save();
     }
 
-    public boolean allowed(String name, UUID uuid, InetAddress address) {
+    public synchronized boolean allowed(String name, UUID uuid, InetAddress address) {
         synchronized (store) {
             String path = base(name);
             if (!store.data().contains(path)) return true;
