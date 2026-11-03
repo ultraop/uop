@@ -27,7 +27,11 @@ public final class ArmorKitService {
 
         PlayerInventory current = player.getInventory();
         Inventory staging = Bukkit.createInventory(null, 36);
-        staging.setContents(current.getStorageContents());
+        ItemStack[] originalStorage = current.getStorageContents();
+        for (int i = 0; i < originalStorage.length; i++) {
+            if (originalStorage[i] != null) originalStorage[i] = originalStorage[i].clone();
+        }
+        staging.setContents(originalStorage);
 
         ItemStack[] oldArmor = current.getArmorContents();
         for (ItemStack item : oldArmor) {
