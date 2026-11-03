@@ -145,6 +145,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     hint(sender, "Enter a loadout name, then one player", "/uop armor save <set_name> <player>");
                     return;
                 }
+                if (teams.exists(TargetResolver.clean(a[3]))) throw new IllegalArgumentException("Saving a loadout requires a single Player, not a Team.");
                 List<Player> selected = targets.resolve(sender, a[3]);
                 if (selected.size() != 1) throw new IllegalArgumentException("Saving a loadout requires exactly one player.");
                 loadouts.save(a[2], selected.get(0));
@@ -357,33 +358,33 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "delete" -> {
                 if (a.length != 3) throw new IllegalArgumentException("Usage: /uop team delete <team_name>");
-                teams.delete(a[2]);
+                teams.delete(TargetResolver.clean(a[2]));
                 msg(sender, "&aDeleted team. Player profiles were retained.");
             }
             case "list" -> msg(sender, "&fTeams: &e" + String.join(", ", teams.list().stream().map(teams::displayName).toList()));
             case "info" -> {
                 if (a.length != 3) throw new IllegalArgumentException("Usage: /uop team info <team_name>");
-                teams.requireTeam(a[2]);
-                List<String> members = teams.members(a[2]);
-                List<String> online = teams.onlineMembers(a[2]).stream().map(Player::getName).toList();
+                teams.requireTeam(TargetResolver.clean(a[2]));
+                List<String> members = teams.members(TargetResolver.clean(a[2]));
+                List<String> online = teams.onlineMembers(TargetResolver.clean(a[2])).stream().map(Player::getName).toList();
                 msg(sender, "&f" + teams.displayName(a[2]) + " &7members (" + members.size() + "): &e" + String.join(", ", members));
-                msg(sender, "&7Online: &a" + String.join(", ", online) + " &8| Friendly fire: " + teams.friendlyFire(a[2]));
+                msg(sender, "&7Online: &a" + String.join(", ", online) + " &8| Friendly fire: " + teams.friendlyFire(TargetResolver.clean(a[2])));
             }
             case "add" -> {
                 if (a.length < 4) throw new IllegalArgumentException("Usage: /uop team add <team_name> <player|selector>...");
                 List<String> names = new ArrayList<>();
                 for (int i = 3; i < a.length; i++) names.addAll(targets.resolveNames(sender, a[i]));
-                teams.addAll(a[2], names);
+                teams.addAll(TargetResolver.clean(a[2]), names);
                 msg(sender, "&aAdded " + names.size() + " member(s) to &f" + a[2]);
             }
             case "remove" -> {
                 if (a.length != 4) throw new IllegalArgumentException("Usage: /uop team remove <team_name> <player>");
-                teams.remove(a[2], TargetResolver.clean(a[3]));
+                teams.remove(TargetResolver.clean(a[2]), TargetResolver.clean(a[3]));
                 msg(sender, "&aMember removed. Personal profile retained.");
             }
             case "removeall" -> {
                 if (a.length != 3) throw new IllegalArgumentException("Usage: /uop team removeall <team_name>");
-                teams.removeAll(a[2]);
+                teams.removeAll(TargetResolver.clean(a[2]));
                 msg(sender, "&aAll members removed. Personal profiles retained.");
             }
             case "tp" -> {
@@ -391,7 +392,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 List<Player> destination = targets.resolve(sender, a[3]);
                 if (destination.size() != 1) throw new IllegalArgumentException("Destination must resolve to exactly one player.");
                 int count = 0;
-                for (Player member : teams.onlineMembers(a[2])) {
+                for (Player member : teams.onlineMembers(TargetResolver.clean(a[2]))) {
                     if (member.equals(destination.get(0))) continue;
                     if (member.teleport(destination.get(0).getLocation())) count++;
                 }
@@ -402,7 +403,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     throw new IllegalArgumentException("Usage: /uop team settings friendlyfire <team_name> <on|off>");
                 }
                 boolean enabled = bool(a[4]);
-                teams.friendlyFire(a[3], enabled);
+                teams.friendlyFire(TargetResolver.clean(a[3]), enabled);
                 msg(sender, "&aFriendly fire for &f" + a[3] + " &7is now " + (enabled ? "&aON" : "&cOFF"));
             }
             default -> hint(sender, "Choose team action", "/uop team <create|delete|list|info|add|remove|removeall|tp|settings>");
@@ -573,7 +574,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             options.add("all");
             return options;
         }
-        if (a.length == 4 && a[1].equals("save")) return playerNames(a[3]);
+        if (a.length == 4 && a[1].equals("save")) return playerNamesAndSingleSelectors(a[3]);
         return List.of();
     }
 
@@ -619,6 +620,12 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (!teams.exists(TargetResolver.clean(team))) return List.of();
         String prefix = TargetResolver.clean(partial).toLowerCase(Locale.ROOT);
         return teams.members(TargetResolver.clean(team)).stream().filter(n -> n.toLowerCase(Locale.ROOT).startsWith(prefix)).toList();
+    }
+
+    private List<String> playerNamesAndSingleSelectors(String partial) {
+        List<String> values = new ArrayList<>(playerNames(partial));
+        for (String selector : List.of("@p", "@r", "@s")) if (selector.startsWith(partial.toLowerCase(Locale.ROOT))) values.add(selector);
+        return values;
     }
 
     private List<String> playerNames(String partial) {
