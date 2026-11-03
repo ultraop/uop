@@ -9,6 +9,9 @@ import com.ultraop.uop.service.EnchantService;
 import com.ultraop.uop.service.FreezeImmortalService;
 import com.ultraop.uop.service.PendingActionService;
 import com.ultraop.uop.service.InventoryService;
+import com.ultraop.uop.service.NameService;
+import com.ultraop.uop.service.ProtectionService;
+import com.ultraop.uop.service.PermissionService;
 import org.bukkit.Material;
 import com.ultraop.uop.profile.PlayerProfileService;
 import com.ultraop.uop.target.TargetResolver;
@@ -43,12 +46,16 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     private final PlayerProfileService profiles;
     private final PendingActionService pending;
     private final InventoryService inventory;
+    private final NameService names;
+    private final ProtectionService protection;
+    private final PermissionService permissions;
 
     public UopCommand(UopPlugin plugin, TeamService teams, TargetResolver targets,
                       ArmorKitService kits, ArmorLoadoutService loadouts,
                       CheckpointService checkpoints, DamageService damage,
                       EnchantService enchants, FreezeImmortalService states,
-                      PlayerProfileService profiles, PendingActionService pending, InventoryService inventory) {
+                      PlayerProfileService profiles, PendingActionService pending, InventoryService inventory,
+                      NameService names, ProtectionService protection, PermissionService permissions) {
         this.plugin = plugin;
         this.teams = teams;
         this.targets = targets;
@@ -61,6 +68,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         this.profiles = profiles;
         this.pending = pending;
         this.inventory = inventory;
+        this.names = names;
+        this.protection = protection;
+        this.permissions = permissions;
     }
 
     private boolean admin(CommandSender sender) {
@@ -68,7 +78,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
 
     private void require(CommandSender sender, String permission) {
-        if (!admin(sender) && !sender.hasPermission(permission)) {
+        if (!admin(sender) && !(sender instanceof Player player
+                && (sender.hasPermission(permission) || permissions.has(player, permission)))) {
             throw new IllegalArgumentException("You do not have permission: " + permission);
         }
     }
@@ -108,10 +119,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     msg(sender, "&aConfiguration and UOP data reloaded.");
                 }
                 case "reset" -> reset(sender, args);
-                case "name", "protect", "permission" -> {
-                    msg(sender, "&eThis command group is specified but not yet implemented in this build.");
-                    msg(sender, "&7See docs/COMMANDS.md for the planned command tree.");
-                }
+                case "name" -> name(sender, args);
+                case "protect" -> protect(sender, args);
+                case "permission" -> permission(sender, args);
                 default -> {
                     msg(sender, "&cUnknown command. Use /uop help.");
                 }
@@ -688,6 +698,189 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             default -> hint(sender, "Choose inventory operation",
                     "/uop inv <view|set|remove|give|take|clear|swap|backup|restore|backups|backup-delete|record|back|lock|unlock>");
+        }
+    }
+
+
+    private void name(CommandSender sender, String[] a) {
+        require(sender, "uop.name");
+        if (a.length < 2) {
+            hint(sender, "Choose name action", "/uop name <hide|show|tag|glitch>");
+            return;
+        }
+        switch (a[1].toLowerCase(Locale.ROOT)) {
+            case "hide", "show" -> {
+                if (a.length != 3) {
+                    hint(sender, "Select ★ Team / Player / selector", "/uop name " + a[1] + " <target>");
+                    return;
+                }
+                List<String> selected = targets.resolveNames(sender, a[2]);
+                for (String player : selected) {
+                    if (a[1].equalsIgnoreCase("hide")) names.hide(player);
+                    else names.show(player);
+                }
+                msg(sender, "&aName visibility updated for " + selected.size() + " profile(s).");
+            }
+            case "tag" -> nameTag(sender, a);
+            case "glitch" -> {
+                msg(sender, "&eName Glitch integration is not enabled.");
+                msg(sender, "&7The optional compatibility mod/dependency has not yet been identified and verified.");
+            }
+            default -> hint(sender, "Choose name action", "/uop name <hide|show|tag|glitch>");
+        }
+    }
+
+    private void nameTag(CommandSender sender, String[] a) {
+        if (a.length < 3) {
+            hint(sender, "Choose name-tag operation",
+                    "/uop name tag <create|edit|list|give|change|remove|delete|help>");
+            return;
+        }
+        switch (a[2].toLowerCase(Locale.ROOT)) {
+            case "help" -> {
+                msg(sender, "&fName tag commands:");
+                msg(sender, "&7/uop name tag create <id> <color> <bold> <italic> <text>");
+                msg(sender, "&7/uop name tag edit <id> <color> <bold> <italic> <text>");
+                msg(sender, "&7/uop name tag give <target> <id>");
+                msg(sender, "&7/uop name tag remove <target> | delete <id>");
+            }
+            case "list" -> msg(sender, "&fSaved name tags: &e" + String.join(", ", names.tags()));
+            case "create", "edit" -> {
+                if (a.length < 8) {
+                    hint(sender, "Enter ID, color, bold, italic and tag text",
+                            "/uop name tag " + a[2] + " <tag_id> <color|#RRGGBB> <bold> <italic> <text>");
+                    return;
+                }
+                String text = String.join(" ", Arrays.copyOfRange(a, 7, a.length));
+                boolean bold = bool(a[5]);
+                boolean italic = bool(a[6]);
+                if (a[2].equalsIgnoreCase("create")) names.create(a[3], a[4], bold, italic, text);
+                else names.edit(a[3], a[4], bold, italic, text);
+                msg(sender, "&aName tag " + (a[2].equalsIgnoreCase("create") ? "created" : "updated") + ": &f" + a[3]);
+            }
+            case "give", "change" -> {
+                if (a.length != 5) {
+                    hint(sender, "Select ★ Team / Player / selector, then tag ID",
+                            "/uop name tag " + a[2] + " <target> <tag_id>");
+                    return;
+                }
+                List<String> selected = targets.resolveNames(sender, a[3]);
+                for (String player : selected) names.give(player, a[4]);
+                msg(sender, "&aName tag assigned to " + selected.size() + " profile(s).");
+            }
+            case "remove" -> {
+                if (a.length != 4) {
+                    hint(sender, "Select ★ Team / Player / selector", "/uop name tag remove <target>");
+                    return;
+                }
+                List<String> selected = targets.resolveNames(sender, a[3]);
+                for (String player : selected) names.removeTag(player);
+                msg(sender, "&aName tags removed from " + selected.size() + " profile(s).");
+            }
+            case "delete" -> {
+                if (a.length != 4) {
+                    hint(sender, "Select saved tag ID", "/uop name tag delete <tag_id>");
+                    return;
+                }
+                names.deleteTag(a[3]);
+                msg(sender, "&aDeleted tag and cleared its assignments: &f" + a[3]);
+            }
+            default -> hint(sender, "Choose name-tag operation",
+                    "/uop name tag <create|edit|list|give|change|remove|delete|help>");
+        }
+    }
+
+    private void protect(CommandSender sender, String[] a) {
+        require(sender, "uop.protect");
+        if (a.length < 2) {
+            hint(sender, "Choose identity-protection action", "/uop protect <add|remove|list|reset>");
+            return;
+        }
+        switch (a[1].toLowerCase(Locale.ROOT)) {
+            case "add" -> {
+                if (a.length != 3 && a.length != 4) {
+                    hint(sender, "Select online target and optional UUID/IP mode",
+                            "/uop protect add <target> [uuid|ip|both]");
+                    return;
+                }
+                String mode = a.length == 4 ? a[3] : "both";
+                if (!List.of("uuid", "ip", "both").contains(mode.toLowerCase(Locale.ROOT))) {
+                    throw new IllegalArgumentException("Protection mode must be uuid, ip or both.");
+                }
+                List<Player> selected = targets.resolve(sender, a[2]);
+                for (Player player : selected) protection.add(player, mode);
+                msg(sender, "&aProtected identity for " + selected.size() + " online player(s) using " + mode.toUpperCase(Locale.ROOT) + ".");
+            }
+            case "remove" -> {
+                if (a.length != 3) {
+                    hint(sender, "Select Player / Team / selector", "/uop protect remove <target>");
+                    return;
+                }
+                List<String> selected = targets.resolveNames(sender, a[2]);
+                for (String player : selected) protection.remove(player);
+                msg(sender, "&aRemoved identity protection for " + selected.size() + " profile(s).");
+            }
+            case "list" -> msg(sender, "&fProtected identities: &e" + String.join(", ", protection.list()));
+            case "reset" -> {
+                if (a.length != 2) throw new IllegalArgumentException("Usage: /uop protect reset");
+                protection.reset();
+                msg(sender, "&aAll protected identity entries cleared.");
+            }
+            default -> hint(sender, "Choose identity-protection action", "/uop protect <add|remove|list|reset>");
+        }
+    }
+
+    private void permission(CommandSender sender, String[] a) {
+        if (!admin(sender)) throw new IllegalArgumentException("UOP permission administration is OP/console only.");
+        if (a.length < 2) {
+            hint(sender, "Choose permission operation", "/uop permission <grant|revoke|list|check|reset>");
+            return;
+        }
+        switch (a[1].toLowerCase(Locale.ROOT)) {
+            case "grant", "revoke" -> {
+                if (a.length < 4) {
+                    hint(sender, "Select Player / Team / selector and one or more permission nodes",
+                            "/uop permission " + a[1] + " <target> <permission...>");
+                    return;
+                }
+                List<String> selected = targets.resolveNames(sender, a[2]);
+                List<String> nodes = Arrays.asList(Arrays.copyOfRange(a, 3, a.length));
+                for (String player : selected) {
+                    if (a[1].equalsIgnoreCase("grant")) permissions.grant(player, nodes);
+                    else permissions.revoke(player, nodes);
+                }
+                msg(sender, "&a" + a[1] + " completed for " + selected.size() + " profile(s).");
+            }
+            case "list" -> {
+                if (a.length != 3) throw new IllegalArgumentException("Usage: /uop permission list <target>");
+                List<String> selected = targets.resolveNames(sender, a[2]);
+                for (String player : selected) msg(sender, "&f" + player + " permissions: &e" + String.join(", ", permissions.list(player)));
+            }
+            case "check" -> {
+                if (a.length != 4) throw new IllegalArgumentException("Usage: /uop permission check <target> <permission>");
+                List<String> selected = targets.resolveNames(sender, a[2]);
+                for (String player : selected) {
+                    boolean allowed = permissions.check(player, a[3]);
+                    msg(sender, "&f" + player + " → " + a[3] + ": " + (allowed ? "&aGRANTED" : "&cNOT GRANTED"));
+                }
+            }
+            case "reset" -> {
+                if (a.length == 3 && a[2].equalsIgnoreCase("all")) {
+                    permissions.resetAll();
+                    msg(sender, "&aAll UOP custom permission grants reset.");
+                    return;
+                }
+                if (a.length != 3 && a.length != 4) {
+                    hint(sender, "Select Player / Team / selector and optional permission node",
+                            "/uop permission reset <target> [permission|all]");
+                    return;
+                }
+                List<String> selected = targets.resolveNames(sender, a[2]);
+                String node = a.length == 4 ? a[3] : "all";
+                for (String player : selected) permissions.reset(player, node);
+                msg(sender, "&aPermissions reset for " + selected.size() + " profile(s).");
+            }
+            default -> hint(sender, "Choose permission operation", "/uop permission <grant|revoke|list|check|reset>");
         }
     }
 
