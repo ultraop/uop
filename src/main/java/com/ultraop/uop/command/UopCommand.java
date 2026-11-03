@@ -1177,9 +1177,41 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
 
     private List<String> armorTabs(String[] a) {
-        if (a.length == 2) return matching(List.of("give", "save", "list", "delete"), a[1]);
+        if (a.length == 2) return matching(List.of("set", "save", "list", "delete", "give", "remove", "weapon"), a[1]);
         if (a.length == 3 && a[1].equals("give")) return matching(List.of("direct", "saved", "random"), a[2]);
+        if (a.length == 3 && a[1].equals("remove")) return targets.suggestions(a[2]);
         if (a.length == 3 && a[1].equals("delete")) return loadoutNames(a[2]);
+        if (a.length == 3 && a[1].equals("set")) return targets.suggestions(a[2]);
+        if (a.length == 4 && a[1].equals("set")) return matching(kits.classicMaterials(), a[3]);
+        if (a.length == 5 && a[1].equals("set")) return matching(kits.modes(), a[4]);
+        if (a.length == 6 && a[1].equals("set") && a[4].equals("enchanted")) {
+            return matching(List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), a[5]);
+        }
+        if (a.length == 6 && a[1].equals("set") && !a[4].equals("enchanted")) {
+            return matching(List.of("true", "false"), a[5]);
+        }
+        if (a.length == 7 && a[1].equals("set") && a[4].equals("enchanted")) {
+            return matching(List.of("true", "false"), a[6]);
+        }
+        if (a.length == 7 && a[1].equals("set") && !a[4].equals("enchanted") && a[5].equals("true")) {
+            return matching(kits.weaponNames(), a[6]);
+        }
+        if (a.length == 8 && a[1].equals("set") && a[4].equals("enchanted") && a[6].equals("true")) {
+            return matching(kits.weaponNames(), a[7]);
+        }
+        if (a.length == 3 && a[1].equals("weapon")) return matching(List.of("set"), a[2]);
+        if (a.length == 4 && a[1].equals("weapon") && a[2].equals("set")) return targets.suggestions(a[3]);
+        if (a.length == 5 && a[1].equals("weapon") && a[2].equals("set")) return matching(kits.modes(), a[4]);
+        if (a.length == 6 && a[1].equals("weapon") && a[2].equals("set") && a[4].equals("enchanted")) {
+            return matching(List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), a[5]);
+        }
+        if (a.length == 6 && a[1].equals("weapon") && a[2].equals("set") && !a[4].equals("enchanted")) {
+            return matching(kits.weaponNames(), a[5]);
+        }
+        if (a.length == 7 && a[1].equals("weapon") && a[2].equals("set") && a[4].equals("enchanted")) {
+            return matching(kits.weaponNames(), a[6]);
+        }
+        if (a.length == 4 && a[1].equals("save")) return playerNamesAndSingleSelectors(a[3]);
         if (a.length == 4 && a[1].equals("give") && a[2].equals("direct")) return matching(kits.materials(), a[3]);
         if (a.length == 5 && a[1].equals("give") && a[2].equals("direct")) return matching(List.of("enchanted"), a[4]);
         if (a.length == 6 && a[1].equals("give") && a[2].equals("direct")) return matching(List.of("1", "2", "3", "4", "5"), a[5]);
@@ -1191,10 +1223,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             options.add("all");
             return options;
         }
-        if (a.length == 4 && a[1].equals("save")) return playerNamesAndSingleSelectors(a[3]);
         return List.of();
     }
-
     private List<String> checkpointTabs(String[] a) {
         if (a.length == 2) return matching(List.of("save", "tp", "back", "list", "delete", "clear"), a[1]);
         if (a.length == 3 && List.of("tp", "back", "delete").contains(a[1])) return checkpointNames(a[2]);
