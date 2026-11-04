@@ -28,6 +28,7 @@ public final class ArmorLoadoutService {
 
     public void save(String name, Player player) {
         String base = "armor-loadouts." + key(name);
+        if (store.data().contains(base)) store.createBackup("loadout-overwrite");
         store.data().set(base + ".display-name", name);
         store.data().set(base + ".storage", cloneItems(player.getInventory().getStorageContents()));
         store.data().set(base + ".armor", cloneItems(player.getInventory().getArmorContents()));
