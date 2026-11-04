@@ -8,6 +8,22 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.configuration.InvalidConfigurationException;
+import org.bukkit.configuration.file.YamlConfiguration;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +44,14 @@ public final class InventoryService {
     private final TeamService teams;
     private final Set<String> recording = new HashSet<>();
     private final Map<String, String> lastFingerprints = new HashMap<>();
+    private final Map<String, List<Map<String, Object>>> historyCache = new HashMap<>();
+    private final ConcurrentMap<String, String> pendingHistoryWrites = new ConcurrentHashMap<>();
+    private final AtomicBoolean historyWriteScheduled = new AtomicBoolean();
+    private final ExecutorService historyWriter = Executors.newSingleThreadExecutor(task -> {
+        Thread thread = new Thread(task, "UOP-History-Writer");
+        thread.setDaemon(true);
+        return thread;
+    });
     private boolean persistencePending;
 
     public InventoryService(JavaPlugin plugin, UopStore store, TeamService teams) {
@@ -38,6 +62,131 @@ public final class InventoryService {
             if (name != null && name.matches("[A-Za-z0-9_]{1,16}")) {
                 recording.add(name.toLowerCase(Locale.ROOT));
             }
+        }
+    }
+
+    private Path historyFile(String playerName) {
+        if (playerName == null || !playerName.matches("[A-Za-z0-9_]{1,16}")) {
+            throw new IllegalArgumentException("Invalid player name for inventory history.");
+        }
+        return plugin.getDataFolder().toPath().resolve("history")
+                .resolve(playerName.toLowerCase(Locale.ROOT) + ".yml");
+    }
+
+    /**
+     * History is cached in memory and stored separately from uop.yml. Legacy
+     * entries are migrated lazily the first time that player's history is used.
+     */
+    private List<Map<String, Object>> history(String playerName) {
+        String cacheKey = playerName.toLowerCase(Locale.ROOT);
+        List<Map<String, Object>> cached = historyCache.get(cacheKey);
+        if (cached != null) return cached;
+
+        List<Map<String, Object>> loaded = new ArrayList<>();
+        Path file = historyFile(playerName);
+        if (Files.exists(file)) {
+            YamlConfiguration yaml = new YamlConfiguration();
+            try {
+                yaml.load(file.toFile());
+            } catch (IOException | InvalidConfigurationException ex) {
+                throw new IllegalStateException("Could not read inventory history for " + playerName
+                        + "; the existing history file was left untouched.", ex);
+            }
+            for (Map<?, ?> row : yaml.getMapList("history")) {
+                Map<String, Object> copy = new LinkedHashMap<>();
+                row.forEach((key, value) -> copy.put(String.valueOf(key), value));
+                loaded.add(copy);
+            }
+        } else {
+            String legacyPath = playerPath(playerName) + ".history";
+            for (Map<?, ?> row : store.data().getMapList(legacyPath)) {
+                Map<String, Object> copy = new LinkedHashMap<>();
+                row.forEach((key, value) -> copy.put(String.valueOf(key), value));
+                loaded.add(copy);
+            }
+            if (!loaded.isEmpty()) {
+                // Save the removal from the old monolithic file once; the new file
+                // is written atomically on the dedicated history writer thread.
+                store.data().set(legacyPath, null);
+                saveStoreSafely("legacy inventory history migration");
+                queueHistoryWrite(playerName, loaded);
+            }
+        }
+        historyCache.put(cacheKey, loaded);
+        return loaded;
+    }
+
+    private void queueHistoryWrite(String playerName, List<Map<String, Object>> history) {
+        YamlConfiguration yaml = new YamlConfiguration();
+        yaml.set("history", history);
+        pendingHistoryWrites.put(playerName.toLowerCase(Locale.ROOT), yaml.saveToString());
+        scheduleHistoryWrite();
+    }
+
+    private void scheduleHistoryWrite() {
+        if (pendingHistoryWrites.isEmpty() || !historyWriteScheduled.compareAndSet(false, true)) return;
+        try {
+            historyWriter.execute(() -> {
+                try {
+                    for (Map.Entry<String, String> entry : new HashMap<>(pendingHistoryWrites).entrySet()) {
+                        Path target = historyFile(entry.getKey());
+                        Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
+                        Files.createDirectories(target.getParent());
+                        Files.writeString(temporary, entry.getValue(), StandardCharsets.UTF_8,
+                                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
+                                StandardOpenOption.WRITE);
+                        try {
+                            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE,
+                                    StandardCopyOption.REPLACE_EXISTING);
+                        } catch (AtomicMoveNotSupportedException ignored) {
+                            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+                        }
+                        pendingHistoryWrites.remove(entry.getKey(), entry.getValue());
+                    }
+                } catch (IOException | RuntimeException ex) {
+                    plugin.getLogger().severe("Could not persist inventory history asynchronously; "
+                            + "the pending history remains queued for retry: " + ex.getMessage());
+                } finally {
+                    historyWriteScheduled.set(false);
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException ex) {
+            historyWriteScheduled.set(false);
+            plugin.getLogger().severe("Inventory history writer is no longer accepting writes: " + ex.getMessage());
+        }
+    }
+
+    /** Flush queued history files before plugin shutdown. */
+    public void shutdown() {
+        scheduleHistoryWrite();
+        historyWriter.shutdown();
+        try {
+            if (!historyWriter.awaitTermination(10, TimeUnit.SECONDS)) {
+                plugin.getLogger().severe("Inventory history writer did not finish within 10 seconds; "
+                        + pendingHistoryWrites.size() + " file(s) may still be pending.");
+                historyWriter.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            historyWriter.shutdownNow();
+            plugin.getLogger().severe("Interrupted while flushing inventory history files.");
+        }
+        if (!pendingHistoryWrites.isEmpty()) {
+            plugin.getLogger().severe("Inventory history remains unflushed for "
+                    + pendingHistoryWrites.size() + " player(s).");
+        }
+    }
+
+    private void deleteHistoryFiles() {
+        Path directory = plugin.getDataFolder().toPath().resolve("history");
+        if (!Files.exists(directory)) return;
+        try (var paths = Files.walk(directory)) {
+            paths.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+                try { Files.deleteIfExists(path); }
+                catch (IOException ex) { throw new java.io.UncheckedIOException(ex); }
+            });
+        } catch (IOException | java.io.UncheckedIOException ex) {
+            throw new IllegalStateException("Could not delete inventory history files.", ex);
         }
     }
 
@@ -274,8 +423,7 @@ public final class InventoryService {
             String key = name.toLowerCase(Locale.ROOT);
             recording.add(key);
             try {
-                String history = playerPath(name) + ".history";
-                if (!store.data().contains(history)) store.data().set(history, new ArrayList<>());
+                history(name);
                 record(player, true);
                 started++;
             } catch (RuntimeException ex) {
@@ -331,18 +479,26 @@ public final class InventoryService {
     public void clearRuntimeRecordingState() {
         recording.clear();
         lastFingerprints.clear();
+        historyCache.clear();
+        pendingHistoryWrites.clear();
         persistencePending = false;
+        try {
+            // The single-thread writer ensures any earlier write finishes before
+            // the reset deletes the history directory.
+            historyWriter.submit(this::deleteHistoryFiles).get(10, TimeUnit.SECONDS);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Could not clear persisted inventory history safely.", ex);
+        }
     }
 
     public void tickHistory() {
-        boolean changed = persistencePending;
         for (String name : new ArrayList<>(recording)) {
             Player player = plugin.getServer().getOnlinePlayers().stream()
                     .filter(candidate -> candidate.getName().equalsIgnoreCase(name))
                     .findFirst().orElse(null);
             if (player != null && player.isOnline()) {
                 try {
-                    changed |= record(player, false);
+                    record(player, false);
                 } catch (RuntimeException ex) {
                     // A bad sample must not cancel the repeating scheduler task or stop
                     // the recording session. Keep the prior history and retry next cycle.
@@ -355,7 +511,7 @@ public final class InventoryService {
                 lastFingerprints.remove(name);
             }
         }
-        if (changed || persistencePending) saveStoreSafely("inventory history sampling");
+        if (persistencePending) saveStoreSafely("inventory recording roster persistence");
     }
 
     private boolean record(Player player, boolean force) {
@@ -363,13 +519,7 @@ public final class InventoryService {
         String playerKey = player.getName().toLowerCase(Locale.ROOT);
         if (!force && fingerprint.equals(lastFingerprints.get(playerKey))) return false;
 
-        String historyPath = playerPath(player.getName()) + ".history";
-        List<Map<String, Object>> history = new ArrayList<>();
-        for (Map<?, ?> old : store.data().getMapList(historyPath)) {
-            Map<String, Object> copy = new LinkedHashMap<>();
-            old.forEach((key, value) -> copy.put(String.valueOf(key), value));
-            history.add(copy);
-        }
+        List<Map<String, Object>> history = history(player.getName());
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("time", System.currentTimeMillis());
         entry.put("snapshot", snapshot(player));
@@ -382,14 +532,14 @@ public final class InventoryService {
         }
         int max = Math.max(1, plugin.getConfig().getInt("history.max-snapshots", 600));
         while (history.size() > max) history.remove(0);
-        store.data().set(historyPath, history);
         lastFingerprints.put(playerKey, fingerprint);
+        queueHistoryWrite(player.getName(), history);
         return true;
     }
 
     public boolean back(Player player, String timeExpression) {
         long seconds = parseTime(timeExpression);
-        List<Map<?, ?>> history = store.data().getMapList(playerPath(player.getName()) + ".history");
+        List<Map<String, Object>> history = history(player.getName());
         if (history.isEmpty()) return false;
         long target = System.currentTimeMillis() - seconds * 1000L;
         Map<?, ?> selected = null;
