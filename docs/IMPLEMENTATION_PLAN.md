@@ -35,7 +35,7 @@
 - [x] Persist active history sessions across reconnect/restart; retry failed samples without cancelling the sampler.
 - [x] Store per-player history separately using atomic background file writes; migrate legacy YAML history lazily.
 - [x] Cache freeze/immortal/lock state for hot event paths.
-- [x] Automatically back up current inventory before applying a saved armor loadout.
+- [x] Automatically back up current inventory before applying a saved armor loadout, direct edits/clear, swaps and checkpoint restore.
 - [x] Create rolling full-data ZIP backups before destructive reset/clear operations.
 - [x] Name visibility/tags, protection and permissions. Chat tag rendering preserves external display-name formatting; overhead nameplate effect still needs live testing.
 - [ ] Complete Team support audit, including offline inventory operations and edge cases.
