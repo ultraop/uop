@@ -131,27 +131,37 @@ public final class InventoryService {
         if (pendingHistoryWrites.isEmpty() || !historyWriteScheduled.compareAndSet(false, true)) return;
         try {
             historyWriter.execute(() -> {
+                boolean failed = false;
                 try {
-                    for (Map.Entry<String, String> entry : new HashMap<>(pendingHistoryWrites).entrySet()) {
-                        Path target = historyFile(entry.getKey());
-                        Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
-                        Files.createDirectories(target.getParent());
-                        Files.writeString(temporary, entry.getValue(), StandardCharsets.UTF_8,
-                                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
-                                StandardOpenOption.WRITE);
-                        try {
-                            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE,
-                                    StandardCopyOption.REPLACE_EXISTING);
-                        } catch (AtomicMoveNotSupportedException ignored) {
-                            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+                    // Drain updates that arrive while a previous file version is being
+                    // written. This guarantees the newest snapshot is flushed on disable.
+                    while (!pendingHistoryWrites.isEmpty()) {
+                        Map<String, String> batch = new HashMap<>(pendingHistoryWrites);
+                        for (Map.Entry<String, String> entry : batch.entrySet()) {
+                            Path target = historyFile(entry.getKey());
+                            Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
+                            Files.createDirectories(target.getParent());
+                            Files.writeString(temporary, entry.getValue(), StandardCharsets.UTF_8,
+                                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
+                                    StandardOpenOption.WRITE);
+                            try {
+                                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE,
+                                        StandardCopyOption.REPLACE_EXISTING);
+                            } catch (AtomicMoveNotSupportedException ignored) {
+                                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+                            }
+                            pendingHistoryWrites.remove(entry.getKey(), entry.getValue());
                         }
-                        pendingHistoryWrites.remove(entry.getKey(), entry.getValue());
                     }
                 } catch (IOException | RuntimeException ex) {
+                    failed = true;
                     plugin.getLogger().severe("Could not persist inventory history asynchronously; "
                             + "the pending history remains queued for retry: " + ex.getMessage());
                 } finally {
                     historyWriteScheduled.set(false);
+                    if (!failed && !pendingHistoryWrites.isEmpty() && !historyWriter.isShutdown()) {
+                        scheduleHistoryWrite();
+                    }
                 }
             });
         } catch (java.util.concurrent.RejectedExecutionException ex) {
