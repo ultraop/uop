@@ -708,12 +708,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 if (a.length != 4) throw new IllegalArgumentException("Usage: /uop team tp <team_name> <destination_player>");
                 List<Player> destination = targets.resolve(sender, a[3]);
                 if (destination.size() != 1) throw new IllegalArgumentException("Destination must resolve to exactly one player.");
+                List<Player> members = teams.onlineMembers(TargetResolver.clean(a[2]));
                 int count = 0;
-                for (Player member : teams.onlineMembers(TargetResolver.clean(a[2]))) {
+                for (Player member : members) {
                     if (member.equals(destination.get(0))) continue;
                     if (member.teleport(destination.get(0).getLocation())) count++;
                 }
-                msg(sender, "&aTeleported " + count + " online team member(s).");
+                if (count > 0) msg(sender, "&aTeleported " + count + " online team member(s).");
+                else msg(sender, "&eNo team members were teleported. The team may have no other online members.");
             }
             case "settings" -> {
                 if (a.length != 5 || !a[2].equalsIgnoreCase("friendlyfire")) {
@@ -942,8 +944,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                             + selected.size() + " selected online player(s).");
                 } else {
                     List<String> selected = targets.resolveNames(sender, a[3]);
-                    inventory.stopRecordNames(selected);
-                    msg(sender, "&aInventory history recording stopped for " + selected.size() + " profile(s).");
+                    int stopped = inventory.stopRecordNames(selected);
+                    if (stopped > 0) msg(sender, "&aInventory history recording stopped for " + stopped + " profile(s).");
+                    else msg(sender, "&eNone of the selected profiles was actively recording inventory history.");
                 }
             }
             case "back" -> {
