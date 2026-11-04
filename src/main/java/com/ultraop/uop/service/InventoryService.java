@@ -453,6 +453,7 @@ public final class InventoryService {
             lastFingerprints.remove(key);
         }
         persistRecordingState();
+        scheduleHistoryWrite();
         saveStoreSafely("inventory recording stop");
     }
 
@@ -492,6 +493,8 @@ public final class InventoryService {
     }
 
     public void tickHistory() {
+        // Retry failed asynchronous file writes even when the player's inventory is unchanged.
+        if (!pendingHistoryWrites.isEmpty()) scheduleHistoryWrite();
         for (String name : new ArrayList<>(recording)) {
             Player player = plugin.getServer().getOnlinePlayers().stream()
                     .filter(candidate -> candidate.getName().equalsIgnoreCase(name))
