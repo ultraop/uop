@@ -643,7 +643,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "delete" -> {
                 if (a.length != 3) throw new IllegalArgumentException("Usage: /uop team delete <team_name>");
-                teams.delete(TargetResolver.clean(a[2]));
+                String teamName = TargetResolver.clean(a[2]);
+                damage.removeTeamRules(teamName);
+                teams.delete(teamName);
                 msg(sender, "&aDeleted team. Player profiles were retained.");
             }
             case "list" -> msg(sender, "&fTeams: &e" + String.join(", ", teams.list().stream().map(teams::displayName).toList()));
