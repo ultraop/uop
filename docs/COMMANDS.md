@@ -44,7 +44,7 @@ Each Player receives an independent snapshot. Re-saving a checkpoint replaces it
 /uop damage reset all
 /uop damage list
 ```
-Player/Team/selectors supported. Exact pair > outgoing > incoming > global. Friendly-fire OFF cancels direct player and player-projectile damage between teammates. Environmental and non-player-owned damage sources are not attributed to a team owner.
+Player/Team/selectors supported. When no mode is supplied, UUID mode is used by default to avoid lockouts after a dynamic IP change. Explicit IP and both modes are available but can lock out legitimate users when their public IP changes. Offline-mode servers receive a startup warning because names and offline UUIDs are not authenticated identities. Exact pair > outgoing > incoming > global. Friendly-fire OFF cancels direct player and player-projectile damage between teammates. Environmental and non-player-owned damage sources are not attributed to a team owner.
 
 ## Enchant / disenchant
 ```text
@@ -141,7 +141,7 @@ Name Glitch is currently an unavailable stub: the optional dependency has not be
 /uop reset all confirm
 /uop version
 ```
-Permission administration is OP/console-only by default. Explicit UOP denies override broader UOP wildcard grants and Bukkit/LuckPerms grants for UOP command authorization. `revoke <target> <node>` adds an explicit deny; `reset <target> <node>` removes the grant and matching deny. Reset-all commands require a second `confirm` argument and create a data backup first.
+Permission administration is OP/console-only by default. Explicit UOP denies override broader UOP wildcard grants and Bukkit/LuckPerms grants for UOP command authorization. The list command displays grants and explicit denies separately. `revoke <target> <node>` adds an explicit deny; `reset <target> <node>` removes the grant and matching deny. Reset-all commands require a second `confirm` argument and create a data backup first.
 
 ## Pending offline actions
 ```text
