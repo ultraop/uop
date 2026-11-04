@@ -34,7 +34,7 @@ import java.util.logging.Level;
 public final class UopCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOTS = List.of("armor", "checkpoint", "damage", "disenchant", "enchant",
             "freeze", "unfreeze", "immortal", "team", "inv", "name", "protect", "permission",
-            "help", "reload", "reset", "version");
+            "help", "reload", "reset", "version", "pending");
     private final UopPlugin plugin;
     private final TeamService teams;
     private final TargetResolver targets;
@@ -781,7 +781,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 }
                 int slot = integer(a[3], 0, 40, "Inventory slot");
                 Material material = Material.matchMaterial(a[4]);
-                if (material == null || material.isAir()) throw new IllegalArgumentException("Unknown item: " + a[4]);
+                if (material == null || material.isAir() || !material.isItem()) throw new IllegalArgumentException("Unknown or non-item material: " + a[4]);
                 int amount = a.length == 6 ? integer(a[5], 1, 99, "Amount") : 1;
                 List<Player> selected = targets.resolve(sender, a[2]);
                 for (Player player : selected) inventory.set(player, slot, material, amount);
@@ -803,7 +803,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 Material material = Material.matchMaterial(a[3]);
-                if (material == null || material.isAir()) throw new IllegalArgumentException("Unknown item: " + a[3]);
+                if (material == null || material.isAir() || !material.isItem()) throw new IllegalArgumentException("Unknown or non-item material: " + a[3]);
                 int amount = a.length == 5 ? integer(a[4], 1, 99, "Amount") : 1;
                 List<Player> selected = targets.resolve(sender, a[2]);
                 int affected = 0, leftovers = 0;
@@ -912,7 +912,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 List<Player> selected = targets.resolve(sender, a[2]);
                 int restored = 0;
                 for (Player player : selected) if (inventory.back(player, a[3])) restored++;
-                msg(sender, "&aRestored inventory history for " + restored + " player(s).");
+                msg(sender, "&aInventory history restored for " + restored + " player(s).");
+                if (restored < selected.size()) msg(sender, "&eNo snapshot old enough for the requested " + a[3]
+                        + " window was available for " + (selected.size() - restored) + " player(s); no fallback snapshot was applied.");
             }
             case "lock", "unlock" -> {
                 if (a.length != 4) {
@@ -1189,6 +1191,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             if (root.equals("protect")) return protectTabs(a);
             if (root.equals("permission")) return permissionTabs(a);
             if (root.equals("reset") && a.length == 2) return matching(List.of("all"), a[1]);
+            if (root.equals("reset") && a.length == 3 && a[1].equalsIgnoreCase("all")) {
+                return matching(List.of("confirm"), a[2]);
+            }
         } catch (Exception ignored) {
             return List.of();
         }
@@ -1204,7 +1209,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (action.equals("set")) {
             if (a.length == 3) return targets.suggestions(a[2]);
             if (a.length == 4) return matching(java.util.stream.IntStream.rangeClosed(0, 40).mapToObj(String::valueOf).toList(), a[3]);
-            if (a.length == 5) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[4]);
+            if (a.length == 5) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir() && m.isItem()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[4]);
             if (a.length == 6) return matching(List.of("1", "16", "32", "64"), a[5]);
         }
         if (action.equals("remove")) {
@@ -1213,7 +1218,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         }
         if (List.of("give", "take").contains(action)) {
             if (a.length == 3) return targets.suggestions(a[2]);
-            if (a.length == 4) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[3]);
+            if (a.length == 4) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir() && m.isItem()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[3]);
             if (a.length == 5) return matching(List.of("1", "16", "32", "64"), a[4]);
         }
         if (action.equals("swap")) {
