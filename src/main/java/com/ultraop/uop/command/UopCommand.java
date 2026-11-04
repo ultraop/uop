@@ -525,12 +525,19 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 msg(sender, "&aCheckpoint deleted.");
             }
             case "clear" -> {
-                if (a.length != 3 || !a[2].equalsIgnoreCase("all")) {
-                    hint(sender, "Type all to clear checkpoints", "/uop checkpoint clear all");
+                if (a.length == 3 && a[2].equalsIgnoreCase("all")) {
+                    msg(sender, "&cThis removes all saved checkpoint snapshots.");
+                    msg(sender, "&eA data backup will be created first. Confirm with: &f/uop checkpoint clear all confirm");
                     return;
                 }
+                if (a.length != 4 || !a[2].equalsIgnoreCase("all") || !a[3].equalsIgnoreCase("confirm")) {
+                    hint(sender, "Confirm clearing all checkpoints", "/uop checkpoint clear all confirm");
+                    return;
+                }
+                java.io.File backup = plugin.store().backupCurrent();
                 checkpoints.clear();
                 msg(sender, "&aAll checkpoints cleared.");
+                if (backup != null) msg(sender, "&7Backup created: &f" + backup.getName());
             }
             default -> hint(sender, "Choose checkpoint action", "/uop checkpoint <save|tp|back|list|delete|clear>");
         }
@@ -1063,9 +1070,18 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "list" -> msg(sender, "&fProtected identities: &e" + String.join(", ", protection.list()));
             case "reset" -> {
-                if (a.length != 2) throw new IllegalArgumentException("Usage: /uop protect reset");
+                if (a.length == 2) {
+                    msg(sender, "&cThis removes every protected identity entry.");
+                    msg(sender, "&eA data backup will be created first. Confirm with: &f/uop protect reset confirm");
+                    return;
+                }
+                if (a.length != 3 || !a[2].equalsIgnoreCase("confirm")) {
+                    throw new IllegalArgumentException("Usage: /uop protect reset confirm");
+                }
+                java.io.File backup = plugin.store().backupCurrent();
                 protection.reset();
                 msg(sender, "&aAll protected identity entries cleared.");
+                if (backup != null) msg(sender, "&7Backup created: &f" + backup.getName());
             }
             default -> hint(sender, "Choose identity-protection action", "/uop protect <add|remove|list|reset>");
         }
@@ -1107,8 +1123,15 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "reset" -> {
                 if (a.length == 3 && a[2].equalsIgnoreCase("all")) {
+                    msg(sender, "&cThis removes every UOP custom permission grant.");
+                    msg(sender, "&eA data backup will be created first. Confirm with: &f/uop permission reset all confirm");
+                    return;
+                }
+                if (a.length == 4 && a[2].equalsIgnoreCase("all") && a[3].equalsIgnoreCase("confirm")) {
+                    java.io.File backup = plugin.store().backupCurrent();
                     permissions.resetAll();
                     msg(sender, "&aAll UOP custom permission grants reset.");
+                    if (backup != null) msg(sender, "&7Backup created: &f" + backup.getName());
                     return;
                 }
                 if (a.length != 3 && a.length != 4) {
@@ -1234,6 +1257,13 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             if (root.equals("reset") && a.length == 3 && a[1].equalsIgnoreCase("all")) {
                 return matching(List.of("confirm"), a[2]);
             }
+            if (root.equals("protect") && a.length == 3 && a[1].equalsIgnoreCase("reset")) {
+                return matching(List.of("confirm"), a[2]);
+            }
+            if (root.equals("checkpoint") && a.length == 4 && a[1].equalsIgnoreCase("clear")
+                    && a[2].equalsIgnoreCase("all")) return matching(List.of("confirm"), a[3]);
+            if (root.equals("permission") && a.length == 4 && a[1].equalsIgnoreCase("reset")
+                    && a[2].equalsIgnoreCase("all")) return matching(List.of("confirm"), a[3]);
         } catch (Exception ignored) {
             return List.of();
         }
