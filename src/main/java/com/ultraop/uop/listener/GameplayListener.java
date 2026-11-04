@@ -160,10 +160,14 @@ public final class GameplayListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        if (!freeze.frozen(player) && !profiles.locked(player, "armor")) return;
-        boolean armorEquip = !freeze.full(player) && !profiles.locked(player, "armor") && isArmor(event.getItem())
-                && (event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR
-                || event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK);
+        boolean rightClick = event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR
+                || event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK;
+        if (profiles.locked(player, "armor") && rightClick && isArmor(event.getItem())) {
+            event.setCancelled(true);
+            return;
+        }
+        if (!freeze.frozen(player)) return;
+        boolean armorEquip = !freeze.full(player) && isArmor(event.getItem()) && rightClick;
         if (!armorEquip) event.setCancelled(true);
     }
 
