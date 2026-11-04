@@ -1082,7 +1082,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                             "/uop protect add <target> [uuid|ip|both]");
                     return;
                 }
-                String mode = a.length == 4 ? a[3] : "both";
+                String mode = a.length == 4 ? a[3] : "uuid";
                 if (!List.of("uuid", "ip", "both").contains(mode.toLowerCase(Locale.ROOT))) {
                     throw new IllegalArgumentException("Protection mode must be uuid, ip or both.");
                 }
