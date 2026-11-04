@@ -654,6 +654,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 if (a.length != 3) throw new IllegalArgumentException("Usage: /uop team delete <team_name>");
                 String teamName = TargetResolver.clean(a[2]);
                 teams.requireTeam(teamName);
+                plugin.store().createBackup("team-delete");
                 damage.removeTeamRules(teamName);
                 teams.delete(teamName);
                 msg(sender, "&aDeleted team. Player profiles were retained.");
@@ -1035,7 +1036,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                             "/uop protect add <target> [uuid|ip|both]");
                     return;
                 }
-                String mode = a.length == 4 ? a[3] : "both";
+                String mode = a.length == 4 ? a[3]
+                        : plugin.getConfig().getString("protection.default-mode", "uuid");
                 if (!List.of("uuid", "ip", "both").contains(mode.toLowerCase(Locale.ROOT))) {
                     throw new IllegalArgumentException("Protection mode must be uuid, ip or both.");
                 }
