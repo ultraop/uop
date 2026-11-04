@@ -270,12 +270,14 @@ public final class InventoryService {
             throw new IllegalArgumentException("Choose a valid modern item material.");
         ItemStack item = new ItemStack(material, amount);
         if (item.getMaxStackSize() < amount) throw new IllegalArgumentException(material + " stack size cannot exceed " + item.getMaxStackSize() + ".");
+        automaticBackup(player, "before-set");
         player.getInventory().setItem(slot, item);
         player.updateInventory();
     }
 
     public void remove(Player player, int slot) {
         validateSlot(slot);
+        if (player.getInventory().getItem(slot) != null) automaticBackup(player, "before-remove");
         player.getInventory().setItem(slot, null);
         player.updateInventory();
     }
@@ -313,6 +315,7 @@ public final class InventoryService {
     }
 
     public void clear(Player player) {
+        automaticBackup(player, "before-clear");
         PlayerInventory inventory = player.getInventory();
         inventory.clear();
         inventory.setArmorContents(new ItemStack[4]);
@@ -343,7 +346,7 @@ public final class InventoryService {
         store.save();
     }
 
-    private void automaticBackup(Player player, String reason) {
+    public void backupAutomatically(Player player, String reason) {
         String name = "auto-" + reason + "-" + System.currentTimeMillis();
         String root = backupPath(player.getName(), name);
         store.data().set(root + ".display-name", name);
@@ -405,6 +408,8 @@ public final class InventoryService {
 
     public void swap(Player first, Player second) {
         if (first.equals(second)) throw new IllegalArgumentException("Choose two different players.");
+        automaticBackup(first, "before-swap");
+        automaticBackup(second, "before-swap");
         Map<String, Object> firstState = snapshot(first);
         Map<String, Object> secondState = snapshot(second);
         try {
@@ -429,6 +434,8 @@ public final class InventoryService {
         List<Player> first = onlineRoster(firstTeam, firstNames);
         List<Player> second = onlineRoster(secondTeam, secondNames);
 
+        for (Player player : first) automaticBackup(player, "before-team-swap");
+        for (Player player : second) automaticBackup(player, "before-team-swap");
         List<Map<String, Object>> firstSnapshots = first.stream().map(this::snapshot).toList();
         List<Map<String, Object>> secondSnapshots = second.stream().map(this::snapshot).toList();
         try {
