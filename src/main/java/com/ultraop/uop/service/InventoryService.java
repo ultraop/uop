@@ -266,7 +266,8 @@ public final class InventoryService {
     public void set(Player player, int slot, Material material, int amount) {
         validateSlot(slot);
         validateAmount(amount);
-        if (material == null || material.isAir()) throw new IllegalArgumentException("Choose a valid non-air item.");
+        if (material == null || material.isAir() || !material.isItem() || material.isLegacy())
+            throw new IllegalArgumentException("Choose a valid modern item material.");
         ItemStack item = new ItemStack(material, amount);
         if (item.getMaxStackSize() < amount) throw new IllegalArgumentException(material + " stack size cannot exceed " + item.getMaxStackSize() + ".");
         player.getInventory().setItem(slot, item);
@@ -281,7 +282,8 @@ public final class InventoryService {
 
     public int give(Player player, Material material, int amount) {
         validateAmount(amount);
-        if (material == null || material.isAir()) throw new IllegalArgumentException("Choose a valid non-air item.");
+        if (material == null || material.isAir() || !material.isItem() || material.isLegacy())
+            throw new IllegalArgumentException("Choose a valid modern item material.");
         Map<Integer, ItemStack> leftovers = player.getInventory().addItem(new ItemStack(material, amount));
         player.updateInventory();
         return leftovers.values().stream().mapToInt(ItemStack::getAmount).sum();
@@ -289,7 +291,8 @@ public final class InventoryService {
 
     public int take(Player player, Material material, int amount) {
         validateAmount(amount);
-        if (material == null || material.isAir()) throw new IllegalArgumentException("Choose a valid non-air item.");
+        if (material == null || material.isAir() || !material.isItem() || material.isLegacy())
+            throw new IllegalArgumentException("Choose a valid modern item material.");
         int remaining = amount;
         int removed = 0;
         PlayerInventory inventory = player.getInventory();
