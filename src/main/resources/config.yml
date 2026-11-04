@@ -11,3 +11,8 @@ teams:
 freeze:
   exempt-ops: true
   exempt-permission: uop.freeze.exempt
+
+protection:
+  # UUID protection avoids locking out players whose mobile/dynamic IP changes.
+  # Use "both" only when fixed IP matching is also intended.
+  default-mode: uuid
