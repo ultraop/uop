@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Level;
 
 public final class UopCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOTS = List.of("armor", "checkpoint", "damage", "disenchant", "enchant",
@@ -112,7 +113,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 case "immortal" -> immortal(sender, args);
                 case "inv" -> inventory(sender, args);
                 case "help" -> help(sender, args);
-                case "version" -> msg(sender, "&fUOP &7" + plugin.getDescription().getVersion() + " &8| &fPaper 1.21.11 &8| &fJava 21+");
+                case "version" -> msg(sender, "&fUOP &7" + plugin.getDescription().getVersion()
+                        + " &8| &f" + plugin.getServer().getBukkitVersion()
+                        + " &8| &fJava " + Runtime.version().feature());
                 case "reload" -> {
                     require(sender, "uop.admin");
                     plugin.reloadUop();
@@ -129,8 +132,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         } catch (IllegalArgumentException ex) {
             msg(sender, "&c" + ex.getMessage());
         } catch (Exception ex) {
-            plugin.getLogger().severe("Command failure: " + ex.getMessage());
-            ex.printStackTrace();
+            plugin.getLogger().log(Level.SEVERE, "Command failure: " + ex.getMessage(), ex);
             msg(sender, "&cOperation failed safely. Check the server console for details.");
         }
         return true;
@@ -491,20 +493,22 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 List<String> names = targets.resolveNames(sender, a[3]);
-                int restored = 0, queued = 0, missing = 0;
+                int restored = 0, queued = 0, failed = 0;
                 for (String name : names) {
                     Player player = Bukkit.getPlayerExact(name);
                     if (player != null && player.isOnline()) {
-                        restored += checkpoints.restore(a[2], List.of(player));
+                        int count = checkpoints.restore(a[2], List.of(player));
+                        if (count > 0) restored++;
+                        else failed++;
                     } else if (checkpoints.hasSnapshot(a[2], name)) {
                         pending.queueCheckpointRestore(name, a[2]);
                         queued++;
                     } else {
-                        missing++;
+                        failed++;
                     }
                 }
                 msg(sender, "&aCheckpoint restored for " + restored + " online player(s); queued for " + queued + " offline profile(s).");
-                if (missing > 0) msg(sender, "&eNo saved snapshot for " + missing + " target(s).");
+                if (failed > 0) msg(sender, "&e" + failed + " target(s) had no usable snapshot, world or successful teleport; no restore was reported for them.");
             }
             case "delete" -> {
                 if (a.length != 3) {
@@ -642,8 +646,11 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "delete" -> {
                 if (a.length != 3) throw new IllegalArgumentException("Usage: /uop team delete <team_name>");
-                teams.delete(TargetResolver.clean(a[2]));
-                msg(sender, "&aDeleted team. Player profiles were retained.");
+                String teamName = TargetResolver.clean(a[2]);
+                teams.requireTeam(teamName);
+                damage.removeTeamRules(teamName);
+                teams.delete(teamName);
+                msg(sender, "&aDeleted team and removed its stored damage rules. Player profiles were retained.");
             }
             case "list" -> msg(sender, "&fTeams: &e" + String.join(", ", teams.list().stream().map(teams::displayName).toList()));
             case "info" -> {
@@ -711,8 +718,15 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             return;
         }
         List<String> names = targets.resolveNames(sender, a[2]);
-        for (String name : names) states.freeze(name, a[1].toLowerCase(Locale.ROOT));
-        msg(sender, "&a" + a[1] + " freeze stored for " + names.size() + " profile(s).");
+        int exemptOnline = 0;
+        for (String name : names) {
+            states.freeze(name, a[1].toLowerCase(Locale.ROOT));
+            Player online = TargetResolver.onlinePlayer(name);
+            if (online != null && states.exempt(online)) exemptOnline++;
+        }
+        msg(sender, "&aFreeze policy saved for " + names.size() + " profile(s).");
+        if (exemptOnline > 0) msg(sender, "&eActive freeze was not applied to " + exemptOnline
+                + " currently online exempt player(s); check freeze.exempt-ops and freeze.exempt-permission.");
     }
 
     private void immortal(CommandSender sender, String[] a) {
@@ -1105,15 +1119,19 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
 
     private void reset(CommandSender sender, String[] a) {
         require(sender, "uop.admin");
-        if (a.length != 2 || !a[1].equalsIgnoreCase("all")) {
-            hint(sender, "Type all to reset UOP persistent state", "/uop reset all");
+        if (a.length == 2 && a[1].equalsIgnoreCase("all")) {
+            msg(sender, "&cThis clears ALL UOP settings, profiles, teams, protection entries and history.");
+            msg(sender, "&eA data backup will be created first. Confirm with: &f/uop reset all confirm");
             return;
         }
-        for (String key : new ArrayList<>(plugin.store().data().getKeys(false))) {
-            if (!key.equals("schema-version")) plugin.store().data().set(key, null);
+        if (a.length != 3 || !a[1].equalsIgnoreCase("all") || !a[2].equalsIgnoreCase("confirm")) {
+            hint(sender, "Use the explicit confirmation step", "/uop reset all confirm");
+            return;
         }
-        plugin.store().save();
-        msg(sender, "&aUOP state reset. Server-managed player inventories were not edited.");
+        java.io.File backup = plugin.resetAllUopData();
+        msg(sender, "&aUOP state reset. All active inventory recordings were stopped.");
+        if (backup != null) msg(sender, "&7Backup created: &f" + backup.getName());
+        msg(sender, "&7Server-managed player inventories were not edited.");
     }
 
     private int integer(String value, int min, int max, String label) {
@@ -1254,8 +1272,13 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
 
     private List<String> permissionTabs(String[] a) {
         if (a.length == 2) return matching(List.of("grant", "revoke", "list", "check", "reset"), a[1]);
-        if (a.length == 3 && List.of("grant", "revoke", "list", "check", "reset").contains(a[1])) {
-            if (a[1].equals("reset") && "all".startsWith(a[2].toLowerCase(Locale.ROOT))) return List.of("all");
+        if (a.length == 3 && List.of("grant", "revoke", "list", "check", "reset").stream()
+                .anyMatch(value -> value.equalsIgnoreCase(a[1]))) {
+            if (a[1].equalsIgnoreCase("reset")) {
+                List<String> options = new ArrayList<>(targets.suggestions(a[2]));
+                if ("all".startsWith(a[2].toLowerCase(Locale.ROOT))) options.add("all");
+                return options;
+            }
             return targets.suggestions(a[2]);
         }
         if (a.length >= 4 && List.of("grant", "revoke").contains(a[1])) {
@@ -1275,10 +1298,11 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     private List<String> teamTabs(String[] a) {
         if (a.length == 2) return matching(List.of("create", "delete", "list", "info", "add", "remove", "removeall", "tp", "settings"), a[1]);
         if (a.length == 3 && List.of("delete", "info", "removeall").contains(a[1])) return teamNames(a[2]);
-        if (a.length == 3 && a[1].equals("add")) return teamNames(a[2]);
+        if (a.length == 3 && a[1].equalsIgnoreCase("add")) return teamNames(a[2]);
         if (a.length >= 4 && a[1].equals("add")) return targets.suggestions(a[a.length - 1]);
         if (a.length == 4 && a[1].equals("remove")) return memberNames(a[2], a[3]);
-        if (a.length == 4 && a[1].equals("tp")) return playerNames(a[3]);
+        if (a.length == 3 && a[1].equalsIgnoreCase("tp")) return teamNames(a[2]);
+        if (a.length == 4 && a[1].equalsIgnoreCase("tp")) return playerNames(a[3]);
         if (a.length == 3 && a[1].equals("settings")) return matching(List.of("friendlyfire"), a[2]);
         if (a.length == 4 && a[1].equals("settings")) return teamNames(a[3]);
         if (a.length == 5 && a[1].equals("settings")) return matching(List.of("on", "off"), a[4]);
