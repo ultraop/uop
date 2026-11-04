@@ -54,6 +54,7 @@ public final class ArmorLoadoutService {
     public void delete(String name) {
         String base = "armor-loadouts." + key(name);
         if (!store.data().contains(base)) throw new IllegalArgumentException("Loadout not found: " + name);
+        store.createBackup("loadout-delete");
         store.data().set(base, null);
         store.save();
     }
