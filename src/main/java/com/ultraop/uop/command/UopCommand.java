@@ -1302,7 +1302,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (action.equals("set")) {
             if (a.length == 3) return targets.suggestions(a[2]);
             if (a.length == 4) return matching(java.util.stream.IntStream.rangeClosed(0, 40).mapToObj(String::valueOf).toList(), a[3]);
-            if (a.length == 5) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[4]);
+            if (a.length == 5) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir() && m.isItem() && !m.isLegacy())
+                    .map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[4]);
             if (a.length == 6) return matching(List.of("1", "16", "32", "64"), a[5]);
         }
         if (action.equals("remove")) {
@@ -1311,7 +1312,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         }
         if (List.of("give", "take").contains(action)) {
             if (a.length == 3) return targets.suggestions(a[2]);
-            if (a.length == 4) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[3]);
+            if (a.length == 4) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir() && m.isItem() && !m.isLegacy())
+                    .map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[3]);
             if (a.length == 5) return matching(List.of("1", "16", "32", "64"), a[4]);
         }
         if (action.equals("swap")) {
