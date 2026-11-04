@@ -1118,7 +1118,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
 
     private void permission(CommandSender sender, String[] a) {
-        if (!admin(sender)) throw new IllegalArgumentException("UOP permission administration is OP/console only.");
+        require(sender, "uop.permission");
         if (a.length < 2) {
             hint(sender, "Choose permission operation", "/uop permission <grant|revoke|list|check|reset>");
             return;
@@ -1383,7 +1383,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             case "inv" -> "uop.inv";
             case "name" -> "uop.name";
             case "protect" -> "uop.protect";
-            case "permission", "reload", "reset", "pending" -> "uop.admin";
+            case "permission" -> "uop.permission";
+            case "reload", "reset", "pending" -> "uop.admin";
             default -> null;
         };
     }
