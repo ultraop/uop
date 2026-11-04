@@ -81,6 +81,7 @@ public final class UopPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (historyTask != -1) Bukkit.getScheduler().cancelTask(historyTask);
+        if (inventory != null) inventory.shutdown();
         if (names != null) names.shutdown();
         if (store != null) store.save();
     }
