@@ -34,6 +34,11 @@ public final class TargetExpressionParser {
                 continue;
             }
             if (current == '[' || current == '{' || current == '(') {
+                // Nested square brackets are valid inside NBT compounds (e.g. Inventory:[...]),
+                // but a selector cannot contain a second '[' directly inside its own argument list.
+                if (current == '[' && delimiters.contains('[') && !delimiters.contains('{')) {
+                    throw new IllegalArgumentException("Nested selector brackets are only valid inside an NBT compound.");
+                }
                 delimiters.push(current);
                 token.append(current);
                 continue;
