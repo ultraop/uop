@@ -331,8 +331,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 queued++;
             }
         }
-        msg(sender, "&aArmor set applied to " + applied + " online player(s); queued for " + queued + " offline profile(s).");
+        if (applied > 0 || queued > 0)
+            msg(sender, "&aArmor set applied to " + applied + " online player(s); queued for " + queued + " offline profile(s).");
         if (!noSpace.isEmpty()) msg(sender, "&eNot enough inventory space; left unchanged: &f" + String.join(", ", noSpace));
+        if (applied == 0 && queued == 0 && noSpace.isEmpty()) msg(sender, "&eNo armor set was applied.");
     }
 
     private void armorWeapon(CommandSender sender, String[] a) {
@@ -364,8 +366,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 queued++;
             }
         }
-        msg(sender, "&aWeapon set applied to " + applied + " online player(s); queued for " + queued + " offline profile(s).");
+        if (applied > 0 || queued > 0)
+            msg(sender, "&aWeapon set applied to " + applied + " online player(s); queued for " + queued + " offline profile(s).");
         if (!noSpace.isEmpty()) msg(sender, "&eNot enough inventory space; left unchanged: &f" + String.join(", ", noSpace));
+        if (applied == 0 && queued == 0 && noSpace.isEmpty()) msg(sender, "&eNo weapon set was applied.");
     }
 
     private void armorRemove(CommandSender sender, String[] a) {
@@ -419,8 +423,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     queued++;
                 }
             }
-            msg(sender, "&aDirect kit applied to " + success + " online player(s); queued for " + queued + " offline profile(s).");
+            if (success > 0 || queued > 0)
+                msg(sender, "&aDirect kit applied to " + success + " online player(s); queued for " + queued + " offline profile(s).");
             if (!skipped.isEmpty()) msg(sender, "&eNo inventory space; left unchanged: &f" + String.join(", ", skipped));
+            if (success == 0 && queued == 0 && skipped.isEmpty()) msg(sender, "&eNo direct kit was applied.");
             return;
         }
         if (mode.equals("saved") || mode.equals("random")) {
@@ -459,8 +465,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     }
                 }
             }
-            msg(sender, "&aLoadout applied to " + success + " online player(s); queued for " + queued + " offline profile(s).");
-            if (!failed.isEmpty()) msg(sender, "&eNo matching saved loadout for: &f" + String.join(", ", failed));
+            if (success > 0 || queued > 0)
+                msg(sender, "&aLoadout applied to " + success + " online player(s); queued for " + queued + " offline profile(s).");
+            if (!failed.isEmpty()) msg(sender, "&eLoadout was not applied for: &f" + String.join(", ", failed));
+            if (success == 0 && queued == 0 && failed.isEmpty()) msg(sender, "&eNo loadout was applied.");
             return;
         }
         hint(sender, "Choose ★ Direct, Saved or Random", "/uop armor give <direct|saved|random> ...");
@@ -824,8 +832,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 }
                 int slot = integer(a[3], 0, 40, "Inventory slot");
                 List<Player> selected = targets.resolve(sender, a[2]);
-                for (Player player : selected) inventory.remove(player, slot);
-                msg(sender, "&aRemoved slot " + slot + " for " + selected.size() + " player(s).");
+                int removed = 0;
+                for (Player player : selected) if (inventory.remove(player, slot)) removed++;
+                if (removed > 0) msg(sender, "&aRemoved slot " + slot + " for " + removed + " player(s).");
+                else msg(sender, "&eThe selected slot was already empty; no inventory was changed.");
             }
             case "give", "take" -> {
                 if (a.length != 4 && a.length != 5) {
