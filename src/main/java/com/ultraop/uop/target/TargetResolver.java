@@ -42,7 +42,8 @@ public final class TargetResolver {
         String input = clean(expression);
         if (input.isBlank()) throw new IllegalArgumentException("Target is required. [Team / Player / selector]");
         Map<String, Player> result = new LinkedHashMap<>();
-        for (String token : splitExpressions(input)) {
+        for (String rawToken : splitExpressions(input)) {
+            String token = clean(rawToken);
             if (token.isEmpty()) continue;
             if (teams.exists(token)) {
                 for (Player player : teams.onlineMembers(token)) result.putIfAbsent(player.getUniqueId().toString(), player);
@@ -70,7 +71,8 @@ public final class TargetResolver {
         String input = clean(expression);
         if (input.isBlank()) throw new IllegalArgumentException("Target is required. [Team / Player / selector]");
         Map<String, String> result = new LinkedHashMap<>();
-        for (String token : splitExpressions(input)) {
+        for (String rawToken : splitExpressions(input)) {
+            String token = clean(rawToken);
             if (token.isEmpty()) continue;
             if (teams.exists(token)) {
                 for (String name : teams.members(token)) result.putIfAbsent(name.toLowerCase(Locale.ROOT), name);
