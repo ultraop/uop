@@ -183,6 +183,7 @@ public final class DamageService {
     }
 
     public void resetAll() {
+        store.createBackup("damage-reset");
         store.data().set("damage", null);
         store.save();
     }
