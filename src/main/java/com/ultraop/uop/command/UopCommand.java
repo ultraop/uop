@@ -34,7 +34,7 @@ import java.util.logging.Level;
 public final class UopCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOTS = List.of("armor", "checkpoint", "damage", "disenchant", "enchant",
             "freeze", "unfreeze", "immortal", "team", "inv", "name", "protect", "permission",
-            "help", "reload", "reset", "version");
+            "help", "reload", "reset", "version", "pending");
     private final UopPlugin plugin;
     private final TeamService teams;
     private final TargetResolver targets;
@@ -115,6 +115,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 case "help" -> help(sender, args);
                 case "version" -> msg(sender, "&fUOP &7" + plugin.getPluginMeta().getVersion()
                         + " &8| &f" + Bukkit.getVersion() + " &8| &fJava " + System.getProperty("java.version"));
+                case "pending" -> pending(sender, args);
                 case "reload" -> {
                     require(sender, "uop.admin");
                     plugin.reloadUop();
@@ -124,6 +125,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 case "name" -> name(sender, args);
                 case "protect" -> protect(sender, args);
                 case "permission" -> permission(sender, args);
+            case "pending" -> pending(sender, args);
                 default -> {
                     msg(sender, "&cUnknown command. Use /uop help.");
                 }
@@ -219,6 +221,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 msg(sender, "&f/uop permission grant|revoke <target> <nodes...>");
                 msg(sender, "&f/uop permission list <target> | check <target> <node>");
                 msg(sender, "&f/uop permission reset <target> [node|all] | reset all");
+            }
+            case "pending" -> {
+                msg(sender, "&f/uop pending list <player>");
+                msg(sender, "&f/uop pending clear <player> confirm");
             }
             case "admin" -> {
                 msg(sender, "&f/uop reload");
@@ -1120,6 +1126,37 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private void pending(CommandSender sender, String[] a) {
+        require(sender, "uop.admin");
+        if (a.length < 3) {
+            hint(sender, "Inspect or clear offline actions",
+                    "/uop pending <list|clear> <player> [confirm]");
+            return;
+        }
+        String action = a[1].toLowerCase(Locale.ROOT);
+        String playerName = TargetResolver.clean(a[2]);
+        TeamService.validatePlayerName(playerName);
+        if (action.equals("list")) {
+            int count = pending.pendingCount(playerName);
+            msg(sender, "&fPending actions for &e" + playerName + "&f: &e" + count);
+            for (String description : pending.pendingDescriptions(playerName)) msg(sender, "&7" + description);
+            if (count == 0) msg(sender, "&7(none)");
+            return;
+        }
+        if (action.equals("clear")) {
+            if (a.length != 4 || !a[3].equalsIgnoreCase("confirm")) {
+                hint(sender, "Confirm deletion of queued actions",
+                        "/uop pending clear " + playerName + " confirm");
+                return;
+            }
+            int removed = pending.pendingCount(playerName);
+            pending.clearPending(playerName);
+            msg(sender, "&aCleared " + removed + " pending action(s) for &f" + playerName);
+            return;
+        }
+        throw new IllegalArgumentException("Pending action must be list or clear.");
+    }
+
     private void reset(CommandSender sender, String[] a) {
         require(sender, "uop.admin");
         if (a.length != 3 || !a[1].equalsIgnoreCase("all") || !a[2].equalsIgnoreCase("confirm")) {
@@ -1166,7 +1203,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             String root = a[0].toLowerCase(Locale.ROOT);
             if (root.equals("help") && a.length == 2) return matching(List.of("team", "armor", "checkpoint", "damage",
-                    "enchant", "disenchant", "freeze", "unfreeze", "immortal", "inv", "name", "protect", "permission", "admin"), a[1]);
+                    "enchant", "disenchant", "freeze", "unfreeze", "immortal", "inv", "name", "protect", "permission", "admin", "pending"), a[1]);
             if (root.equals("team")) return teamTabs(a);
             if (root.equals("armor")) return armorTabs(a);
             if (root.equals("checkpoint")) return checkpointTabs(a);
