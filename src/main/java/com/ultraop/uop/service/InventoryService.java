@@ -105,6 +105,8 @@ public final class InventoryService {
         int removed = 0;
         PlayerInventory inventory = player.getInventory();
         for (int slot = 0; slot <= 40 && remaining > 0; slot++) {
+            // Never consume equipped armor while executing /uop inv take.
+            if (slot >= 36 && slot <= 39) continue;
             ItemStack item = inventory.getItem(slot);
             if (item == null || item.getType() != material) continue;
             int count = Math.min(remaining, item.getAmount());
@@ -300,6 +302,13 @@ public final class InventoryService {
         return recording.stream().sorted().toList();
     }
 
+    /** Clears process-local sampler state when an administrator resets UOP data. */
+    public void clearRuntimeRecordingState() {
+        recording.clear();
+        lastFingerprints.clear();
+        persistencePending = false;
+    }
+
     public void tickHistory() {
         boolean changed = persistencePending;
         for (String name : new ArrayList<>(recording)) {
@@ -369,7 +378,7 @@ public final class InventoryService {
                 selected = entry;
             }
         }
-        if (selected == null) selected = history.get(0);
+        if (selected == null) return false;
         Object raw = selected.get("snapshot");
         if (!(raw instanceof Map<?, ?> snapshot)) return false;
         restoreSnapshot(player, snapshot);
