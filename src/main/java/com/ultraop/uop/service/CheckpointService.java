@@ -8,6 +8,8 @@ import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.GameMode;
+import org.bukkit.util.Vector;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -30,7 +32,7 @@ public final class CheckpointService {
         if (name == null || !name.matches("[A-Za-z0-9._-]{1,48}")) {
             throw new IllegalArgumentException("Checkpoint name must be 1-48 letters, numbers, '.', '_' or '-'.");
         }
-        return name.toLowerCase();
+        return name.toLowerCase(java.util.Locale.ROOT);
     }
 
     public int save(String name, List<Player> players) {
@@ -43,6 +45,7 @@ public final class CheckpointService {
             String base = root + ".players." + player.getName().toLowerCase();
             Location location = player.getLocation();
             store.data().set(base + ".world", location.getWorld().getUID().toString());
+            store.data().set(base + ".world-name", location.getWorld().getName());
             store.data().set(base + ".x", location.getX());
             store.data().set(base + ".y", location.getY());
             store.data().set(base + ".z", location.getZ());
@@ -54,6 +57,13 @@ public final class CheckpointService {
             store.data().set(base + ".offhand", offhand == null ? null : offhand.clone());
             store.data().set(base + ".held-slot", player.getInventory().getHeldItemSlot());
             store.data().set(base + ".health", player.getHealth());
+            store.data().set(base + ".level", player.getLevel());
+            store.data().set(base + ".exp", player.getExp());
+            store.data().set(base + ".total-experience", player.getTotalExperience());
+            store.data().set(base + ".fire-ticks", player.getFireTicks());
+            store.data().set(base + ".fall-distance", player.getFallDistance());
+            store.data().set(base + ".velocity", player.getVelocity());
+            store.data().set(base + ".game-mode", player.getGameMode().name());
             store.data().set(base + ".food", player.getFoodLevel());
             store.data().set(base + ".saturation", player.getSaturation());
             List<Map<String, Object>> effects = new ArrayList<>();
@@ -115,11 +125,16 @@ public final class CheckpointService {
         for (Player player : players) {
             String base = "checkpoints." + checkpoint + ".players." + player.getName().toLowerCase();
             if (!store.data().contains(base + ".world")) continue;
-            World world;
+            World world = null;
+            String worldId = store.data().getString(base + ".world", "");
             try {
-                world = Bukkit.getWorld(UUID.fromString(store.data().getString(base + ".world")));
-            } catch (Exception ex) {
-                world = null;
+                if (!worldId.isBlank()) world = Bukkit.getWorld(UUID.fromString(worldId));
+            } catch (IllegalArgumentException ignored) {
+                // Older snapshots may contain an invalid or obsolete UUID; try its stored world name.
+            }
+            if (world == null) {
+                String worldName = store.data().getString(base + ".world-name", "");
+                if (!worldName.isBlank()) world = Bukkit.getWorld(worldName);
             }
             if (world == null) continue;
             Location target = new Location(world,
@@ -152,6 +167,19 @@ public final class CheckpointService {
             player.setSaturation(Math.max(0.0f, saturation));
             double health = store.data().getDouble(base + ".health", 20.0);
             player.setHealth(Math.max(1.0, Math.min(player.getMaxHealth(), health)));
+            player.setLevel(Math.max(0, store.data().getInt(base + ".level", 0)));
+            player.setExp(Math.max(0.0f, Math.min(1.0f, (float) store.data().getDouble(base + ".exp", 0.0))));
+            player.setTotalExperience(Math.max(0, store.data().getInt(base + ".total-experience", 0)));
+            player.setFireTicks(Math.max(0, store.data().getInt(base + ".fire-ticks", 0)));
+            player.setFallDistance(Math.max(0.0f, (float) store.data().getDouble(base + ".fall-distance", 0.0)));
+            Object velocity = store.data().get(base + ".velocity");
+            if (velocity instanceof Vector vector) player.setVelocity(vector.clone());
+            String gameMode = store.data().getString(base + ".game-mode", "");
+            try {
+                if (!gameMode.isBlank()) player.setGameMode(GameMode.valueOf(gameMode));
+            } catch (IllegalArgumentException ignored) {
+                // Preserve the current mode when a legacy snapshot contains an unknown value.
+            }
             for (PotionEffect existing : player.getActivePotionEffects()) player.removePotionEffect(existing.getType());
             for (Map<?, ?> entry : store.data().getMapList(base + ".effects")) {
                 String typeKey = String.valueOf(entry.get("type"));
