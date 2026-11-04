@@ -244,7 +244,9 @@ public final class PendingActionService {
                 return true;
             }
             case "checkpoint-restore" -> {
-                return checkpoints.restore(String.valueOf(action.get("name")), List.of(player)) > 0;
+                String checkpoint = String.valueOf(action.get("name"));
+                if (!checkpoint.equalsIgnoreCase(CheckpointService.BACK_CHECKPOINT)) checkpoints.saveBack(player);
+                return checkpoints.restore(checkpoint, List.of(player)) > 0;
             }
             default -> {
                 plugin.getLogger().warning("Unknown pending UOP action '" + type + "' for " + player.getName());
