@@ -30,6 +30,19 @@ public final class DamageService {
         return value;
     }
 
+    private double storedValue(Object raw) {
+        if (!(raw instanceof Number number)) return 1.0;
+        double value = number.doubleValue();
+        return Double.isFinite(value) && value >= 0.0 && value <= 10.0 ? value : 1.0;
+    }
+
+    public boolean friendlyFireDisabled(Player attacker, Player victim) {
+        if (attacker == null || victim == null) return false;
+        String team = teams.teamOf(attacker.getName());
+        return team != null && team.equalsIgnoreCase(teams.teamOf(victim.getName()))
+                && teams.exists(team) && !teams.friendlyFire(team);
+    }
+
     private String descriptor(CommandSender sender, String expression) {
         String value = TargetResolver.clean(expression);
         if (teams.exists(value)) return "team:" + value.toLowerCase(Locale.ROOT);
@@ -107,12 +120,12 @@ public final class DamageService {
             String descriptor = String.valueOf(entry.get("target"));
             if (!matches(descriptor, player)) continue;
             Object value = entry.get("multiplier");
-            if (!(value instanceof Number number)) continue;
+            if (!(value instanceof Number)) continue;
             int currentSpecificity = specificity(descriptor);
             // Most specific target wins; for equal specificity, the most recently saved rule wins.
             if (currentSpecificity >= bestSpecificity) {
                 bestSpecificity = currentSpecificity;
-                selected = clamp(number.doubleValue());
+                selected = storedValue(value);
             }
         }
         return selected;
@@ -121,18 +134,17 @@ public final class DamageService {
     public double multiplier(Player attacker, Player victim) {
         if (attacker != null) {
             String team = teams.teamOf(attacker.getName());
-            if (team != null && team.equalsIgnoreCase(teams.teamOf(victim.getName()))
-                    && !teams.friendlyFire(team)) return 0.0;
+            if (friendlyFireDisabled(attacker, victim)) return 0.0;
             Double pairMultiplier = null;
             int pairSpecificity = -1;
             for (Map<?, ?> entry : store.data().getMapList("damage.rules.pairs")) {
                 String a = String.valueOf(entry.get("attacker"));
                 String v = String.valueOf(entry.get("victim"));
-                if (!matches(a, attacker) || !matches(v, victim) || !(entry.get("multiplier") instanceof Number n)) continue;
+                if (!matches(a, attacker) || !matches(v, victim) || !(entry.get("multiplier") instanceof Number value)) continue;
                 int current = specificity(a) + specificity(v);
                 if (current >= pairSpecificity) {
                     pairSpecificity = current;
-                    pairMultiplier = clamp(n.doubleValue());
+                    pairMultiplier = storedValue(value);
                 }
             }
             if (pairMultiplier != null) return pairMultiplier;
@@ -141,7 +153,7 @@ public final class DamageService {
         }
         Double incoming = matchingRule("damage.rules.incoming", victim);
         if (incoming != null) return incoming;
-        return clamp(store.data().getDouble("damage.global", 1.0));
+        return storedValue(store.data().get("damage.global", 1.0));
     }
 
     public void resetGlobal() {
@@ -190,6 +202,26 @@ public final class DamageService {
     }
 
     public double global() {
-        return store.data().getDouble("damage.global", 1.0);
+        return storedValue(store.data().get("damage.global", 1.0));
+    }
+
+    /** Remove rules tied to a deleted team so recreating its name cannot revive old settings. */
+    public void removeTeamRules(String teamName) {
+        String descriptor = "team:" + teamName.toLowerCase(Locale.ROOT);
+        for (String scope : List.of("outgoing", "incoming")) {
+            String path = "damage.rules." + scope;
+            List<Map<?, ?>> next = new ArrayList<>();
+            for (Map<?, ?> entry : store.data().getMapList(path)) {
+                if (!descriptor.equalsIgnoreCase(String.valueOf(entry.get("target")))) next.add(copy(entry));
+            }
+            store.data().set(path, next);
+        }
+        List<Map<?, ?>> pairs = new ArrayList<>();
+        for (Map<?, ?> entry : store.data().getMapList("damage.rules.pairs")) {
+            if (!descriptor.equalsIgnoreCase(String.valueOf(entry.get("attacker")))
+                    && !descriptor.equalsIgnoreCase(String.valueOf(entry.get("victim")))) pairs.add(copy(entry));
+        }
+        store.data().set("damage.rules.pairs", pairs);
+        store.save();
     }
 }
