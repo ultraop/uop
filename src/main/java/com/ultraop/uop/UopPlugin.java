@@ -88,6 +88,8 @@ public final class UopPlugin extends JavaPlugin {
         store.save();
         reloadConfig();
         store.reload();
+        protection.refreshCache();
+        names.refreshTagSnapshot();
 
         teams.defaultFriendlyFire(getConfig().getBoolean("teams.friendly-fire-default", true));
 
