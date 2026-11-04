@@ -44,6 +44,9 @@ public final class TargetExpressionParser {
                 continue;
             }
 
+            if (current == '[' && brackets.contains('[') && !brackets.contains('{')) {
+                throw new IllegalArgumentException("Selector brackets cannot be nested directly.");
+            }
             if (current == '[' || current == '{') {
                 brackets.push(current);
                 token.append(current);
