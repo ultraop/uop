@@ -170,9 +170,26 @@ public final class InventoryService {
         }
     }
 
+    /** Flush queued history files before backup, reset, or plugin shutdown. */
+    public void flushHistoryWrites() {
+        if (!pendingHistoryWrites.isEmpty()) scheduleHistoryWrite();
+        try {
+            historyWriter.submit(() -> {}).get(10, TimeUnit.SECONDS);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Could not flush inventory history before a destructive operation.", ex);
+        }
+        if (!pendingHistoryWrites.isEmpty()) {
+            throw new IllegalStateException("Inventory history still has unflushed snapshots; destructive operation cancelled.");
+        }
+    }
+
     /** Flush queued history files before plugin shutdown. */
     public void shutdown() {
-        scheduleHistoryWrite();
+        try {
+            flushHistoryWrites();
+        } catch (IllegalStateException ex) {
+            plugin.getLogger().severe(ex.getMessage());
+        }
         historyWriter.shutdown();
         try {
             if (!historyWriter.awaitTermination(10, TimeUnit.SECONDS)) {
@@ -501,6 +518,7 @@ public final class InventoryService {
 
     /** Clears process-local sampler state when an administrator resets UOP data. */
     public void clearRuntimeRecordingState() {
+        flushHistoryWrites();
         recording.clear();
         lastFingerprints.clear();
         historyCache.clear();
