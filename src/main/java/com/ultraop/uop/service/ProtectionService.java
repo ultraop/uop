@@ -5,17 +5,24 @@ import org.bukkit.entity.Player;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 
+/** Identity protection with an immutable read snapshot safe for async pre-login events. */
 public final class ProtectionService {
     private final UopStore store;
+    private volatile Map<String, ProtectionEntry> entries = Map.of();
+
+    private record ProtectionEntry(String uuid, String ip, String mode, String displayName) {}
 
     public ProtectionService(UopStore store) {
         this.store = store;
+        refreshCache();
     }
 
     private String base(String playerName) {
@@ -34,11 +41,13 @@ public final class ProtectionService {
         store.data().set(path + ".ip", address);
         store.data().set(path + ".mode", normalized);
         store.save();
+        refreshCache();
     }
 
     public synchronized void remove(String playerName) {
         store.data().set(base(playerName), null);
         store.save();
+        refreshCache();
     }
 
     public synchronized Set<String> list() {
@@ -54,23 +63,41 @@ public final class ProtectionService {
     public synchronized void reset() {
         store.data().set("protection.entries", null);
         store.save();
+        refreshCache();
     }
 
-    public synchronized boolean allowed(String name, UUID uuid, InetAddress address) {
-        synchronized (store) {
-            String path = base(name);
-            if (!store.data().contains(path)) return true;
-            String expectedUuid = store.data().getString(path + ".uuid", "");
-            String expectedIp = store.data().getString(path + ".ip", "");
-            String mode = normalizeMode(store.data().getString(path + ".mode", "both"));
-            boolean uuidMatches = uuid != null && uuid.toString().equalsIgnoreCase(expectedUuid);
-            boolean ipMatches = !expectedIp.isBlank() && expectedIp.equals(ip(address));
-            return switch (mode) {
-                case "uuid" -> uuidMatches;
-                case "ip" -> ipMatches;
-                default -> uuidMatches && ipMatches;
-            };
+    /** Rebuild after startup, data reload, or an admin reset. */
+    public synchronized void refreshCache() {
+        var section = store.data().getConfigurationSection("protection.entries");
+        if (section == null) {
+            entries = Map.of();
+            return;
         }
+        Map<String, ProtectionEntry> next = new HashMap<>();
+        for (String key : section.getKeys(false)) {
+            String path = "protection.entries." + key;
+            String mode = normalizeMode(store.data().getString(path + ".mode", "both"));
+            next.put(key.toLowerCase(Locale.ROOT), new ProtectionEntry(
+                    store.data().getString(path + ".uuid", ""),
+                    store.data().getString(path + ".ip", ""),
+                    mode,
+                    store.data().getString(path + ".name", key)));
+        }
+        entries = Map.copyOf(next);
+    }
+
+    /** This method performs no Bukkit/YAML access and is safe on the async login thread. */
+    public boolean allowed(String name, UUID uuid, InetAddress address) {
+        if (name == null) return true;
+        ProtectionEntry entry = entries.get(name.toLowerCase(Locale.ROOT));
+        if (entry == null) return true;
+        boolean uuidMatches = uuid != null && uuid.toString().equalsIgnoreCase(entry.uuid());
+        boolean ipMatches = !entry.ip().isBlank() && entry.ip().equals(ip(address));
+        return switch (entry.mode()) {
+            case "uuid" -> uuidMatches;
+            case "ip" -> ipMatches;
+            default -> uuidMatches && ipMatches;
+        };
     }
 
     private String normalizeMode(String mode) {
