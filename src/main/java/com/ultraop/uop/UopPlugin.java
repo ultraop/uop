@@ -70,6 +70,7 @@ public final class UopPlugin extends JavaPlugin {
         damage = new DamageService(store, teams, targets);
         enchants = new EnchantService();
         states = new FreezeImmortalService(profiles);
+        configureFreezeExemptions();
         pending = new PendingActionService(store, this, kits, loadouts, checkpoints, enchants);
         inventory = new InventoryService(this, store, teams);
         names = new NameService(store);
@@ -80,7 +81,28 @@ public final class UopPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (historyTask != -1) Bukkit.getScheduler().cancelTask(historyTask);
+        if (names != null) names.shutdown();
         if (store != null) store.save();
+    }
+
+    private void configureFreezeExemptions() {
+        if (states != null) {
+            states.configureExemptions(
+                    getConfig().getBoolean("freeze.exempt-ops", true),
+                    getConfig().getString("freeze.exempt-permission", "uop.freeze.exempt"));
+        }
+    }
+
+    /** Clears persisted UOP data and all runtime state that could recreate it. */
+    public void resetAllUopData() {
+        if (names != null) names.shutdown();
+        if (inventory != null) inventory.clearRuntimeRecordingState();
+        for (String key : new java.util.ArrayList<>(store.data().getKeys(false))) {
+            if (!key.equals("schema-version")) store.data().set(key, null);
+        }
+        store.save();
+        if (names != null) names.refreshTagCache();
+        if (protection != null) protection.refreshCache();
     }
 
     public void reloadUop() {
@@ -90,6 +112,7 @@ public final class UopPlugin extends JavaPlugin {
         store.reload();
 
         teams.defaultFriendlyFire(getConfig().getBoolean("teams.friendly-fire-default", true));
+        configureFreezeExemptions();
 
         if (historyTask != -1) Bukkit.getScheduler().cancelTask(historyTask);
         long sampleTicks = Math.max(1L, getConfig().getLong("history.sample-ticks", 100L));
