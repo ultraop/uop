@@ -39,8 +39,24 @@ public final class UopStore {
         if(!dir.exists()&&!dir.mkdirs()) throw new IllegalStateException("Could not create UOP backup directory; reset was cancelled.");
         String stamp=LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"));
         File backup=new File(dir,"uop-"+stamp+".yml");
-        try { Files.copy(file.toPath(),backup.toPath(),StandardCopyOption.COPY_ATTRIBUTES); return backup; }
-        catch(IOException ex) { throw new IllegalStateException("Could not back up UOP data; reset was cancelled.",ex); }
+        int suffix=1;
+        while(backup.exists()) backup=new File(dir,"uop-"+stamp+"-"+suffix++ + ".yml");
+        try {
+            Files.copy(file.toPath(),backup.toPath(),StandardCopyOption.COPY_ATTRIBUTES);
+            // Keep the last ten recovery points; the newly created backup is never pruned.
+            File[] oldBackups=dir.listFiles((folder,name)->name.startsWith("uop-")&&name.endsWith(".yml"));
+            if(oldBackups!=null&&oldBackups.length>10) {
+                java.util.Arrays.sort(oldBackups,java.util.Comparator.comparingLong(File::lastModified));
+                for(int i=0;i<oldBackups.length-10;i++) {
+                    if(!oldBackups[i].equals(backup)&&!oldBackups[i].delete()) {
+                        plugin.getLogger().warning("Could not prune old UOP backup: "+oldBackups[i].getName());
+                    }
+                }
+            }
+            return backup;
+        } catch(IOException ex) {
+            throw new IllegalStateException("Could not back up UOP data; reset was cancelled.",ex);
+        }
     }
     public synchronized void clearAll() {
         for(String key:data.getKeys(false)) if(!key.equals("schema-version")) data.set(key,null);
