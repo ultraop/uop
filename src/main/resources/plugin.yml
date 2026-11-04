@@ -11,11 +11,28 @@ commands:
     usage: /uop help
     aliases: [ultraop]
 permissions:
+  'uop.*':
+    description: Grants all UOP command permissions
+    default: false
+    children:
+      uop.armor: true
+      uop.checkpoint: true
+      uop.damage: true
+      uop.enchant: true
+      uop.freeze: true
+      uop.immortal: true
+      uop.team: true
+      uop.inv: true
+      uop.name: true
+      uop.protect: true
+      uop.permission: true
+      uop.admin: true
   uop.armor: { default: op }
   uop.checkpoint: { default: op }
   uop.damage: { default: op }
   uop.enchant: { default: op }
   uop.freeze: { default: op }
+  uop.freeze.exempt: { default: false }
   uop.immortal: { default: op }
   uop.team: { default: op }
   uop.inv: { default: op }

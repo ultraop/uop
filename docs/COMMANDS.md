@@ -25,10 +25,10 @@ This reference describes the implemented command tree and identifies unavailable
 /uop checkpoint list
 /uop checkpoint delete <checkpoint_name>
 /uop checkpoint tp <checkpoint_name> <target>
-/uop checkpoint back <checkpoint_name> <target>
-/uop checkpoint clear all
+/uop checkpoint back <target>
+/uop checkpoint clear all confirm
 ```
-Each Player receives an independent snapshot. `tp` restores full snapshot and position: world, coordinates, rotation, inventory, armor, offhand, selected slot and effects. Team save reports offline members. TAB suggests saved checkpoint names before target choices.
+Each Player receives an independent snapshot. Re-saving a checkpoint replaces its previous roster so stale offline snapshots cannot be mixed with new data. `tp` restores the saved state and stores the player's current state for `back`; `back <target>` restores that pre-teleport state. Snapshots include world (UUID plus name fallback), coordinates, rotation, inventory, armor, offhand, selected slot, health, food, saturation, XP, gamemode, fire/fall state, velocity and potion effects. Teleport success is checked before restore is reported. Team save reports offline members.
 
 ## Damage
 ```text
@@ -44,14 +44,14 @@ Each Player receives an independent snapshot. `tp` restores full snapshot and po
 /uop damage reset all
 /uop damage list
 ```
-Player/Team/selectors supported. Exact pair > outgoing > incoming > global. Friendly-fire OFF overrides same-Team damage.
+Player/Team/selectors supported. Exact pair > outgoing > incoming > global. Friendly-fire OFF cancels direct player and player-projectile damage between teammates. Environmental and non-player-owned damage sources are not attributed to a team owner.
 
 ## Enchant / disenchant
 ```text
 /uop enchant <all|armor|equipment|mainhand|offhand|inventory> <target> <enchantment> <level>
 /uop disenchant <all|armor|equipment|hand|inventory> <target> [slot] <enchantment>
 ```
-Target may be Player, Team or selector. Suggest compatible enchantments, levels and slots. Remove only selected enchantment.
+Target may be Player, Team or selector. TAB derives enchantment keys and level suggestions from the server registry; actual item compatibility is validated when applied. Remove only the selected enchantment.
 
 ## Freeze / unfreeze
 ```text
@@ -124,8 +124,9 @@ Name Glitch is currently an unavailable stub: the optional dependency has not be
 /uop protect add <target> [uuid|ip|both]
 /uop protect remove <target>
 /uop protect list
-/uop protect reset
+/uop protect reset confirm
 ```
+When no mode is supplied, UUID mode is used by default to avoid lockouts after a dynamic IP change. Explicit IP and both modes are available but can lock out legitimate users when their public IP changes. Offline-mode servers receive a startup warning because names and offline UUIDs are not authenticated identities.
 
 ## Permissions and administration
 ```text
@@ -133,15 +134,22 @@ Name Glitch is currently an unavailable stub: the optional dependency has not be
 /uop permission revoke <player> <nodes...>
 /uop permission list <player>
 /uop permission check <player> <node>
-/uop permission reset <player> [node]
-/uop permission reset all
+/uop permission reset <player> [node|all]
+/uop permission reset all confirm
 /uop help [group]
 /uop help unfreeze
 /uop reload
-/uop reset all
+/uop reset all confirm
 /uop version
 ```
-Permission administration is OP/console-only by default.
+Permission administration requires `uop.permission` (default: op); console and operators retain access. Admins can explicitly grant this node to trusted staff. Explicit UOP denies override broader UOP wildcard grants and Bukkit/LuckPerms grants for UOP command authorization. The list command displays grants and explicit denies separately. The `uop.*` Bukkit parent permission grants all declared UOP command permissions. `revoke <target> <node>` adds an explicit deny; `reset <target> <node>` removes the grant and matching deny. Reset-all commands require a second `confirm` argument and create a data backup first.
+
+## Pending offline actions
+```text
+/uop pending list <player|target>
+/uop pending clear <player|target>
+```
+Pending offline actions are deduplicated, limited per profile and expire after the configured number of days. Actions run one tick after join and are retained with a warning when they cannot be applied. Administrators can inspect and clear a player's queued actions.
 
 ## Contextual argument hints
 Examples: `[Saved loadout name]`, `[Checkpoint name]`, `[Team name]`, `[Player / selector]`, `[Enchantment]`, `[Enchantment level]`, `[Inventory slot 0-40]`, `[Multiplier 0-10]`. Suggestions are contextual by command position, including registry-derived enchantment keys and each enchantment's maximum supported level. `/uop` and `/uop help` display the command directory; `/uop help <group>` prints nested syntax and the group is TAB-completable.

@@ -266,29 +266,60 @@ public final class ArmorKitService {
 
     private void applyTierEnchantments(ItemStack item, int tier, String slot) {
         if (item == null || item.getType().isAir() || tier <= 0) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+        String material = item.getType().name().toLowerCase(Locale.ROOT);
+        String category = material.endsWith("_helmet") || material.endsWith("_chestplate")
+                || material.endsWith("_leggings") || material.endsWith("_boots") ? "armor"
+                : material.contains("sword") ? "sword"
+                : material.contains("bow") && !material.contains("crossbow") ? "bow"
+                : material.contains("crossbow") ? "crossbow"
+                : material.contains("trident") ? "trident"
+                : material.contains("mace") ? "mace"
+                : material.contains("pickaxe") || material.contains("shovel") || material.contains("hoe") ? "tool"
+                : material.contains("axe") ? "axe" : "other";
+        List<Enchantment> applied = new ArrayList<>();
         for (Enchantment enchantment : Registry.ENCHANTMENT) {
             String id = enchantment.getKey().getKey().toLowerCase(Locale.ROOT);
-            if (CURSES.contains(id) || id.endsWith("_curse") || !enchantment.canEnchantItem(item)) continue;
-            if (!allowedAtTier(id, tier)) continue;
+            if (CURSES.contains(id) || id.endsWith("_curse") || !enchantment.canEnchantItem(item)
+                    || !allowedAtTier(id, tier, category, slot)) continue;
+            boolean conflict = applied.stream().anyMatch(existing ->
+                    enchantment.conflictsWith(existing) || existing.conflictsWith(enchantment));
+            if (conflict) continue;
             int level = tier >= 9 ? enchantment.getMaxLevel() : Math.min(tier, enchantment.getMaxLevel());
             if (level < 1) continue;
-            ItemMeta meta = item.getItemMeta();
-            if (meta == null) continue;
-            meta.addEnchant(enchantment, level, true);
-            item.setItemMeta(meta);
+            meta.addEnchant(enchantment, level, false);
+            applied.add(enchantment);
         }
+        item.setItemMeta(meta);
     }
 
-    private boolean allowedAtTier(String id, int tier) {
-        if (tier == 1) return id.equals("mending");
-        if (tier == 2) return id.equals("mending") || id.equals("unbreaking");
-        if (tier <= 4) return id.equals("mending") || id.equals("unbreaking")
-                || id.endsWith("protection") || id.equals("feather_falling") || id.equals("respiration");
-        if (tier <= 6) return allowedAtTier(id, 4) || id.equals("aqua_affinity")
-                || id.equals("depth_strider") || id.equals("soul_speed") || id.equals("swift_sneak");
-        if (tier <= 8) return allowedAtTier(id, 6) || id.equals("thorns") || id.equals("frost_walker")
-                || id.equals("silk_touch") || id.equals("fortune");
-        return true;
+    private boolean allowedAtTier(String id, int tier, String category, String slot) {
+        if (id.equals("mending")) return tier >= 1;
+        if (id.equals("unbreaking")) return tier >= 2;
+        return switch (category) {
+            case "armor" -> (id.equals("protection") && tier >= 3)
+                    || (id.equals("feather_falling") && slot.equals("boots") && tier >= 4)
+                    || (id.equals("respiration") && slot.equals("helmet") && tier >= 4)
+                    || (id.equals("aqua_affinity") && slot.equals("helmet") && tier >= 5)
+                    || (id.equals("depth_strider") && slot.equals("boots") && tier >= 5)
+                    || (id.equals("soul_speed") && slot.equals("boots") && tier >= 7)
+                    || (id.equals("swift_sneak") && slot.equals("legs") && tier >= 7)
+                    || (id.equals("thorns") && tier >= 8);
+            case "sword" -> (id.equals("sharpness") && tier >= 3)
+                    || (id.equals("looting") && tier >= 4) || (id.equals("fire_aspect") && tier >= 6)
+                    || (id.equals("sweeping_edge") && tier >= 6) || (id.equals("knockback") && tier >= 7);
+            case "axe" -> (id.equals("sharpness") && tier >= 3) || (id.equals("efficiency") && tier >= 4)
+                    || (id.equals("looting") && tier >= 7);
+            case "tool" -> (id.equals("efficiency") && tier >= 3) || (id.equals("fortune") && tier >= 6);
+            case "bow" -> (id.equals("power") && tier >= 3) || (id.equals("punch") && tier >= 6)
+                    || (id.equals("flame") && tier >= 7);
+            case "crossbow" -> (id.equals("quick_charge") && tier >= 3) || (id.equals("multishot") && tier >= 6);
+            case "trident" -> (id.equals("loyalty") && tier >= 3) || (id.equals("impaling") && tier >= 4)
+                    || (id.equals("channeling") && tier >= 7);
+            case "mace" -> (id.equals("density") && tier >= 3) || (id.equals("wind_burst") && tier >= 8);
+            default -> false;
+        };
     }
 
     private String pickMaterial(String material) {

@@ -44,6 +44,12 @@ public final class UopPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        if (!getServer().getOnlineMode()) {
+            getLogger().warning("ONLINE-MODE IS DISABLED: UOP still stores several profiles by player name. "
+                    + "Offline-mode UUIDs are not authenticated identities; name impersonation may expose "
+                    + "stored teams, permissions, inventory history and protection records. Use an authenticated "
+                    + "online-mode proxy or restrict server access.");
+        }
         initializeServices();
         PluginCommand root = getCommand("uop");
         if (root == null) throw new IllegalStateException("The /uop command is missing from plugin.yml");
@@ -51,9 +57,10 @@ public final class UopPlugin extends JavaPlugin {
                 damage, enchants, states, profiles, pending, inventory, names, protection, permissions);
         root.setExecutor(executor);
         root.setTabCompleter(executor);
-        getServer().getPluginManager().registerEvents(new GameplayListener(profiles, states, damage, pending), this);
+        getServer().getPluginManager().registerEvents(new GameplayListener(profiles, states, damage, pending, this), this);
         getServer().getPluginManager().registerEvents(new NameTagListener(names), this);
         getServer().getPluginManager().registerEvents(new ProtectionListener(protection), this);
+        names.refreshAll();
         long sampleTicks = Math.max(1L, getConfig().getLong("history.sample-ticks", 100L));
         historyTask = Bukkit.getScheduler().runTaskTimer(this, inventory::tickHistory, sampleTicks, sampleTicks).getTaskId();
         getLogger().info("UOP enabled: Team, target, checkpoint, damage, enchantment, freeze and immortal services registered.");
@@ -69,9 +76,9 @@ public final class UopPlugin extends JavaPlugin {
         checkpoints = new CheckpointService(store);
         damage = new DamageService(store, teams, targets);
         enchants = new EnchantService();
-        states = new FreezeImmortalService(profiles);
-        pending = new PendingActionService(store, this, kits, loadouts, checkpoints, enchants);
+        states = new FreezeImmortalService(profiles, this);
         inventory = new InventoryService(this, store, teams);
+        pending = new PendingActionService(store, this, kits, loadouts, checkpoints, enchants, inventory);
         names = new NameService(store);
         protection = new ProtectionService(store);
         permissions = new PermissionService(store);
@@ -80,6 +87,7 @@ public final class UopPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (historyTask != -1) Bukkit.getScheduler().cancelTask(historyTask);
+        if (names != null) names.shutdown();
         if (store != null) store.save();
     }
 
@@ -88,6 +96,7 @@ public final class UopPlugin extends JavaPlugin {
         store.save();
         reloadConfig();
         store.reload();
+        protection.rebuildCache();
 
         teams.defaultFriendlyFire(getConfig().getBoolean("teams.friendly-fire-default", true));
 
@@ -97,6 +106,16 @@ public final class UopPlugin extends JavaPlugin {
                 .runTaskTimer(this, inventory::tickHistory, sampleTicks, sampleTicks).getTaskId();
 
         names.refreshAll();
+    }
+
+    /** Back up persistent data before clearing every runtime and stored UOP feature state. */
+    public java.io.File resetAllUopData() {
+        java.io.File backup = store.backupCurrent();
+        inventory.clearRuntimeForReset();
+        names.resetRuntimeState();
+        store.clearAll();
+        protection.rebuildCache();
+        return backup;
     }
 
     public UopStore store() { return store; }

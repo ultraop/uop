@@ -1,6 +1,7 @@
 package com.ultraop.uop.service;
 
 import com.ultraop.uop.storage.UopStore;
+import com.ultraop.uop.service.InventoryService;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -18,16 +19,18 @@ public final class PendingActionService {
     private final ArmorLoadoutService loadouts;
     private final CheckpointService checkpoints;
     private final EnchantService enchants;
+    private final InventoryService inventory;
 
     public PendingActionService(UopStore store, JavaPlugin plugin, ArmorKitService kits,
                                 ArmorLoadoutService loadouts, CheckpointService checkpoints,
-                                EnchantService enchants) {
+                                EnchantService enchants, InventoryService inventory) {
         this.store = store;
         this.plugin = plugin;
         this.kits = kits;
         this.loadouts = loadouts;
         this.checkpoints = checkpoints;
         this.enchants = enchants;
+        this.inventory = inventory;
     }
 
     private String path(String playerName) {
@@ -100,32 +103,101 @@ public final class PendingActionService {
     }
 
     private void queue(String playerName, Map<String, Object> action) {
+        long now = System.currentTimeMillis();
+        long expiryDays = Math.max(1L, plugin.getConfig().getLong("pending.expiry-days", 30L));
+        long expiresAt = now + expiryDays * 86_400_000L;
+        action.put("created-at", now);
+        action.put("expires-at", expiresAt);
+
         List<Map<String, Object>> actions = new ArrayList<>();
+        boolean duplicate = false;
         for (Map<?, ?> old : store.data().getMapList(path(playerName))) {
             Map<String, Object> copy = new HashMap<>();
             old.forEach((k, v) -> copy.put(String.valueOf(k), v));
+            Object expires = copy.get("expires-at");
+            if (expires instanceof Number n && n.longValue() > 0 && n.longValue() <= now) continue;
+            if (sameAction(copy, action)) duplicate = true;
             actions.add(copy);
         }
-        actions.add(action);
-        store.data().set(path(playerName), actions);
+        int limit = Math.max(1, plugin.getConfig().getInt("pending.max-actions-per-player", 50));
+        if (!duplicate) {
+            if (actions.size() >= limit) {
+                throw new IllegalArgumentException("Pending action limit reached for " + playerName
+                        + " (" + limit + "). Review or clear /uop pending entries first.");
+            }
+            actions.add(action);
+        }
+        store.data().set(path(playerName), actions.isEmpty() ? null : actions);
         store.save();
+    }
+
+    private boolean sameAction(Map<String, Object> left, Map<String, Object> right) {
+        Map<String, Object> a = new HashMap<>(left);
+        Map<String, Object> b = new HashMap<>(right);
+        for (String key : List.of("created-at", "expires-at", "attempts")) {
+            a.remove(key);
+            b.remove(key);
+        }
+        return a.equals(b);
     }
 
     public int pendingCount(String playerName) {
         return store.data().getMapList(path(playerName)).size();
     }
 
+    public List<String> pendingDescriptions(String playerName) {
+        List<String> result = new ArrayList<>();
+        int index = 1;
+        for (Map<?, ?> action : store.data().getMapList(path(playerName))) {
+            String type = String.valueOf(action.containsKey("type") ? action.get("type") : "unknown");
+            long expires = action.get("expires-at") instanceof Number n ? n.longValue() : 0L;
+            result.add("#" + index++ + " " + type + (expires > 0 ? " (expires " + expires + ")" : ""));
+        }
+        return result;
+    }
+
+    public int clear(String playerName) {
+        int count = pendingCount(playerName);
+        store.data().set(path(playerName), null);
+        store.save();
+        return count;
+    }
+
     /** Runs once after the profile has been observed on PlayerJoinEvent. */
     public int applyOnJoin(Player player) {
         String actionPath = path(player.getName());
-        List<Map<String, Object>> remaining = new ArrayList<>();
-        int applied = 0;
-        for (Map<?, ?> raw : store.data().getMapList(actionPath)) {
+        List<Map<String, Object>> source = store.data().getMapList(actionPath).stream().map(raw -> {
             Map<String, Object> action = new HashMap<>();
             raw.forEach((k, v) -> action.put(String.valueOf(k), v));
+            return action;
+        }).toList();
+        List<Map<String, Object>> remaining = new ArrayList<>();
+        int applied = 0;
+        boolean changed = false;
+        long now = System.currentTimeMillis();
+        long expiryDays = Math.max(1L, plugin.getConfig().getLong("pending.expiry-days", 30L));
+        for (Map<String, Object> action : source) {
+            Object expiry = action.get("expires-at");
+            if (!(expiry instanceof Number number) || number.longValue() <= 0) {
+                // Migrate pre-expiry pending actions safely: retain them once with a bounded lifetime.
+                action.put("created-at", now);
+                action.put("expires-at", now + expiryDays * 86_400_000L);
+                changed = true;
+                expiry = action.get("expires-at");
+            }
+            if (expiry instanceof Number number && number.longValue() > 0 && number.longValue() <= now) {
+                changed = true;
+                plugin.getLogger().warning("Expired pending UOP action discarded for " + player.getName()
+                        + ": " + action.get("type"));
+                continue;
+            }
             try {
-                if (applyOne(player, action)) applied++;
-                else remaining.add(action);
+                if (applyOne(player, action)) {
+                    applied++;
+                    changed = true;
+                } else {
+                    remaining.add(action);
+                }
             } catch (Exception ex) {
                 remaining.add(action);
                 plugin.getLogger().warning("Pending UOP action retained for " + player.getName()
@@ -133,7 +205,7 @@ public final class PendingActionService {
             }
         }
         store.data().set(actionPath, remaining.isEmpty() ? null : remaining);
-        if (applied > 0 || !remaining.isEmpty()) store.save();
+        if (changed) store.save();
         return applied;
     }
 
@@ -161,6 +233,8 @@ public final class PendingActionService {
                 return kits.giveDirect(player, material, level);
             }
             case "loadout" -> {
+                if (!loadouts.exists(String.valueOf(action.get("name")))) return false;
+                inventory.backup(player, "auto-pre-loadout-" + System.nanoTime());
                 return loadouts.give(String.valueOf(action.get("name")), player);
             }
             case "enchant" -> {
@@ -175,7 +249,9 @@ public final class PendingActionService {
                 return true;
             }
             case "checkpoint-restore" -> {
-                return checkpoints.restore(String.valueOf(action.get("name")), List.of(player)) > 0;
+                String checkpoint = String.valueOf(action.get("name"));
+                if (!checkpoint.equalsIgnoreCase(CheckpointService.BACK_CHECKPOINT)) checkpoints.saveBack(player);
+                return checkpoints.restore(checkpoint, List.of(player)) > 0;
             }
             default -> {
                 plugin.getLogger().warning("Unknown pending UOP action '" + type + "' for " + player.getName());
