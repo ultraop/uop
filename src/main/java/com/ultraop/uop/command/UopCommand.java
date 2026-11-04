@@ -28,12 +28,14 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
+import java.util.logging.Level;
 
 public final class UopCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOTS = List.of("armor", "checkpoint", "damage", "disenchant", "enchant",
             "freeze", "unfreeze", "immortal", "team", "inv", "name", "protect", "permission",
-            "help", "reload", "reset", "version");
+            "help", "reload", "reset", "version", "pending");
     private final UopPlugin plugin;
     private final TeamService teams;
     private final TargetResolver targets;
@@ -112,7 +114,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 case "immortal" -> immortal(sender, args);
                 case "inv" -> inventory(sender, args);
                 case "help" -> help(sender, args);
-                case "version" -> msg(sender, "&fUOP &7" + plugin.getDescription().getVersion() + " &8| &fPaper 1.21.11 &8| &fJava 21+");
+                case "version" -> msg(sender, "&fUOP &7" + plugin.getPluginMeta().getVersion()
+                        + " &8| &f" + Bukkit.getVersion() + " &8| &fJava " + System.getProperty("java.version"));
+                case "pending" -> pending(sender, args);
                 case "reload" -> {
                     require(sender, "uop.admin");
                     plugin.reloadUop();
@@ -129,8 +133,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         } catch (IllegalArgumentException ex) {
             msg(sender, "&c" + ex.getMessage());
         } catch (Exception ex) {
-            plugin.getLogger().severe("Command failure: " + ex.getMessage());
-            ex.printStackTrace();
+            plugin.getLogger().log(Level.SEVERE, "Command failure", ex);
             msg(sender, "&cOperation failed safely. Check the server console for details.");
         }
         return true;
@@ -218,6 +221,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 msg(sender, "&f/uop permission grant|revoke <target> <nodes...>");
                 msg(sender, "&f/uop permission list <target> | check <target> <node>");
                 msg(sender, "&f/uop permission reset <target> [node|all] | reset all");
+            }
+            case "pending" -> {
+                msg(sender, "&f/uop pending list <player>");
+                msg(sender, "&f/uop pending clear <player> confirm");
             }
             case "admin" -> {
                 msg(sender, "&f/uop reload");
@@ -324,8 +331,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 queued++;
             }
         }
-        msg(sender, "&aArmor set applied to " + applied + " online player(s); queued for " + queued + " offline profile(s).");
+        if (applied > 0 || queued > 0)
+            msg(sender, "&aArmor set applied to " + applied + " online player(s); queued for " + queued + " offline profile(s).");
         if (!noSpace.isEmpty()) msg(sender, "&eNot enough inventory space; left unchanged: &f" + String.join(", ", noSpace));
+        if (applied == 0 && queued == 0 && noSpace.isEmpty()) msg(sender, "&eNo armor set was applied.");
     }
 
     private void armorWeapon(CommandSender sender, String[] a) {
@@ -357,8 +366,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 queued++;
             }
         }
-        msg(sender, "&aWeapon set applied to " + applied + " online player(s); queued for " + queued + " offline profile(s).");
+        if (applied > 0 || queued > 0)
+            msg(sender, "&aWeapon set applied to " + applied + " online player(s); queued for " + queued + " offline profile(s).");
         if (!noSpace.isEmpty()) msg(sender, "&eNot enough inventory space; left unchanged: &f" + String.join(", ", noSpace));
+        if (applied == 0 && queued == 0 && noSpace.isEmpty()) msg(sender, "&eNo weapon set was applied.");
     }
 
     private void armorRemove(CommandSender sender, String[] a) {
@@ -412,8 +423,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     queued++;
                 }
             }
-            msg(sender, "&aDirect kit applied to " + success + " online player(s); queued for " + queued + " offline profile(s).");
+            if (success > 0 || queued > 0)
+                msg(sender, "&aDirect kit applied to " + success + " online player(s); queued for " + queued + " offline profile(s).");
             if (!skipped.isEmpty()) msg(sender, "&eNo inventory space; left unchanged: &f" + String.join(", ", skipped));
+            if (success == 0 && queued == 0 && skipped.isEmpty()) msg(sender, "&eNo direct kit was applied.");
             return;
         }
         if (mode.equals("saved") || mode.equals("random")) {
@@ -452,8 +465,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     }
                 }
             }
-            msg(sender, "&aLoadout applied to " + success + " online player(s); queued for " + queued + " offline profile(s).");
-            if (!failed.isEmpty()) msg(sender, "&eNo matching saved loadout for: &f" + String.join(", ", failed));
+            if (success > 0 || queued > 0)
+                msg(sender, "&aLoadout applied to " + success + " online player(s); queued for " + queued + " offline profile(s).");
+            if (!failed.isEmpty()) msg(sender, "&eLoadout was not applied for: &f" + String.join(", ", failed));
+            if (success == 0 && queued == 0 && failed.isEmpty()) msg(sender, "&eNo loadout was applied.");
             return;
         }
         hint(sender, "Choose ★ Direct, Saved or Random", "/uop armor give <direct|saved|random> ...");
@@ -495,16 +510,24 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 for (String name : names) {
                     Player player = Bukkit.getPlayerExact(name);
                     if (player != null && player.isOnline()) {
-                        restored += checkpoints.restore(a[2], List.of(player));
-                    } else if (checkpoints.hasSnapshot(a[2], name)) {
+                        restored += a[1].equalsIgnoreCase("back")
+                                ? checkpoints.back(a[2], List.of(player))
+                                : checkpoints.restore(a[2], List.of(player));
+                    } else if (!a[1].equalsIgnoreCase("back") && checkpoints.hasSnapshot(a[2], name)) {
                         pending.queueCheckpointRestore(name, a[2]);
                         queued++;
                     } else {
                         missing++;
                     }
                 }
-                msg(sender, "&aCheckpoint restored for " + restored + " online player(s); queued for " + queued + " offline profile(s).");
-                if (missing > 0) msg(sender, "&eNo saved snapshot for " + missing + " target(s).");
+                if (restored > 0 || queued > 0) {
+                    msg(sender, "&a" + (a[1].equalsIgnoreCase("back") ? "Returned " : "Restored ")
+                            + restored + " online player(s)" + (queued > 0 ? "; queued for " + queued + " offline profile(s)." : "."));
+                }
+                if (missing > 0) msg(sender, "&eNo saved checkpoint/return position for " + missing + " target(s).");
+                if (restored == 0 && queued == 0 && missing == 0) {
+                    msg(sender, "&eNo selected player could be restored; no location or snapshot was changed.");
+                }
             }
             case "delete" -> {
                 if (a.length != 3) {
@@ -515,8 +538,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 msg(sender, "&aCheckpoint deleted.");
             }
             case "clear" -> {
-                if (a.length != 3 || !a[2].equalsIgnoreCase("all")) {
-                    hint(sender, "Type all to clear checkpoints", "/uop checkpoint clear all");
+                if (a.length != 4 || !a[2].equalsIgnoreCase("all") || !a[3].equalsIgnoreCase("confirm")) {
+                    hint(sender, "Confirm destructive checkpoint removal",
+                            "/uop checkpoint clear all confirm");
                     return;
                 }
                 checkpoints.clear();
@@ -572,7 +596,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                         if (a.length != 5) throw new IllegalArgumentException("Usage: /uop damage reset pair <attacker_target> <victim_target>");
                         damage.resetPair(sender, a[3], a[4]);
                     }
-                    case "all" -> damage.resetAll();
+                    case "all" -> {
+                        if (a.length != 4 || !a[3].equalsIgnoreCase("confirm")) {
+                            hint(sender, "Confirm removal of all damage rules",
+                                    "/uop damage reset all confirm");
+                            return;
+                        }
+                        damage.resetAll();
+                    }
                     default -> throw new IllegalArgumentException("Unknown damage reset scope.");
                 }
                 msg(sender, "&aDamage rule reset.");
@@ -642,7 +673,11 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "delete" -> {
                 if (a.length != 3) throw new IllegalArgumentException("Usage: /uop team delete <team_name>");
-                teams.delete(TargetResolver.clean(a[2]));
+                String teamName = TargetResolver.clean(a[2]);
+                teams.requireTeam(teamName);
+                plugin.store().createBackup("team-delete");
+                damage.removeTeamRules(teamName);
+                teams.delete(teamName);
                 msg(sender, "&aDeleted team. Player profiles were retained.");
             }
             case "list" -> msg(sender, "&fTeams: &e" + String.join(", ", teams.list().stream().map(teams::displayName).toList()));
@@ -656,10 +691,16 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "add" -> {
                 if (a.length < 4) throw new IllegalArgumentException("Usage: /uop team add <team_name> <player|selector>...");
-                List<String> names = new ArrayList<>();
-                for (int i = 3; i < a.length; i++) names.addAll(targets.resolveNames(sender, a[i]));
+                java.util.LinkedHashSet<String> resolved = new java.util.LinkedHashSet<>();
+                for (int i = 3; i < a.length; i++) resolved.addAll(targets.resolveNames(sender, a[i]));
+                List<String> names = new ArrayList<>(resolved);
+                teams.requireTeam(TargetResolver.clean(a[2]));
+                int newMembers = (int) names.stream()
+                        .filter(name -> !teams.contains(TargetResolver.clean(a[2]), name)).count();
                 teams.addAll(TargetResolver.clean(a[2]), names);
-                msg(sender, "&aAdded " + names.size() + " member(s) to &f" + a[2]);
+                msg(sender, "&aAdded " + newMembers + " new member(s) to &f" + a[2] + ".");
+                if (newMembers < names.size()) msg(sender, "&7" + (names.size() - newMembers)
+                        + " selected player(s) were already members.");
             }
             case "remove" -> {
                 if (a.length != 4) throw new IllegalArgumentException("Usage: /uop team remove <team_name> <player>");
@@ -675,12 +716,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 if (a.length != 4) throw new IllegalArgumentException("Usage: /uop team tp <team_name> <destination_player>");
                 List<Player> destination = targets.resolve(sender, a[3]);
                 if (destination.size() != 1) throw new IllegalArgumentException("Destination must resolve to exactly one player.");
+                List<Player> members = teams.onlineMembers(TargetResolver.clean(a[2]));
                 int count = 0;
-                for (Player member : teams.onlineMembers(TargetResolver.clean(a[2]))) {
+                for (Player member : members) {
                     if (member.equals(destination.get(0))) continue;
                     if (member.teleport(destination.get(0).getLocation())) count++;
                 }
-                msg(sender, "&aTeleported " + count + " online team member(s).");
+                if (count > 0) msg(sender, "&aTeleported " + count + " online team member(s).");
+                else msg(sender, "&eNo team members were teleported. The team may have no other online members.");
             }
             case "settings" -> {
                 if (a.length != 5 || !a[2].equalsIgnoreCase("friendlyfire")) {
@@ -711,8 +754,17 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             return;
         }
         List<String> names = targets.resolveNames(sender, a[2]);
-        for (String name : names) states.freeze(name, a[1].toLowerCase(Locale.ROOT));
-        msg(sender, "&a" + a[1] + " freeze stored for " + names.size() + " profile(s).");
+        List<String> exemptOnline = new ArrayList<>();
+        for (String name : names) {
+            states.freeze(name, a[1].toLowerCase(Locale.ROOT));
+            Player online = Bukkit.getPlayerExact(name);
+            if (online != null && states.exempt(online)) exemptOnline.add(name);
+        }
+        msg(sender, "&a" + a[1] + " freeze saved for " + names.size() + " profile(s).");
+        if (!exemptOnline.isEmpty()) {
+            msg(sender, "&eFreeze is not active for exempt online player(s): &f" + String.join(", ", exemptOnline));
+            msg(sender, "&7Set freeze.exempt-ops=false or remove the configured exemption, then run /uop reload.");
+        }
     }
 
     private void immortal(CommandSender sender, String[] a) {
@@ -780,8 +832,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 }
                 int slot = integer(a[3], 0, 40, "Inventory slot");
                 List<Player> selected = targets.resolve(sender, a[2]);
-                for (Player player : selected) inventory.remove(player, slot);
-                msg(sender, "&aRemoved slot " + slot + " for " + selected.size() + " player(s).");
+                int removed = 0;
+                for (Player player : selected) if (inventory.remove(player, slot)) removed++;
+                if (removed > 0) msg(sender, "&aRemoved slot " + slot + " for " + removed + " player(s).");
+                else msg(sender, "&eThe selected slot was already empty; no inventory was changed.");
             }
             case "give", "take" -> {
                 if (a.length != 4 && a.length != 5) {
@@ -792,19 +846,28 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 if (material == null || material.isAir()) throw new IllegalArgumentException("Unknown item: " + a[3]);
                 int amount = a.length == 5 ? integer(a[4], 1, 99, "Amount") : 1;
                 List<Player> selected = targets.resolve(sender, a[2]);
-                int affected = 0, leftovers = 0;
+                int affected = 0, leftovers = 0, inserted = 0;
                 for (Player player : selected) {
                     if (a[1].equalsIgnoreCase("give")) {
-                        leftovers += inventory.give(player, material, amount);
-                        affected++;
+                        int remaining = inventory.give(player, material, amount);
+                        leftovers += remaining;
+                        int received = amount - remaining;
+                        if (received > 0) affected++;
+                        inserted += received;
                     } else {
                         affected += inventory.take(player, material, amount);
                     }
                 }
                 if (a[1].equalsIgnoreCase("give")) {
-                    msg(sender, "&aItem given to " + affected + " player(s). Leftover items because of full inventories: " + leftovers + ".");
+                    if (inserted == 0) {
+                        msg(sender, "&eNo items were inserted; selected inventories may be full.");
+                    } else {
+                        msg(sender, "&aInserted " + inserted + " item(s) into " + affected
+                                + " player inventory(s). Left over due to capacity: " + leftovers + ".");
+                    }
                 } else {
-                    msg(sender, "&aRemoved " + affected + " item(s) in total.");
+                    if (affected == 0) msg(sender, "&eNo matching items were found; no inventory items were removed.");
+                    else msg(sender, "&aRemoved " + affected + " item(s) in total.");
                 }
             }
             case "clear" -> {
@@ -851,9 +914,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 List<Player> selected = targets.resolve(sender, a[2]);
-                int restored = 0;
-                for (Player player : selected) if (inventory.restore(player, a[3])) restored++;
-                msg(sender, "&aRestored backup for " + restored + " player(s).");
+                int restored = 0, missing = 0;
+                for (Player player : selected) {
+                    if (inventory.restore(player, a[3])) restored++;
+                    else missing++;
+                }
+                if (restored > 0) msg(sender, "&aRestored backup for " + restored + " player(s).");
+                if (missing > 0) msg(sender, "&eBackup '" + a[3] + "' was missing or invalid for "
+                        + missing + " player(s); their inventory was not changed.");
             }
             case "backups" -> {
                 if (a.length != 3) {
@@ -886,8 +954,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                             + selected.size() + " selected online player(s).");
                 } else {
                     List<String> selected = targets.resolveNames(sender, a[3]);
-                    inventory.stopRecordNames(selected);
-                    msg(sender, "&aInventory history recording stopped for " + selected.size() + " profile(s).");
+                    int stopped = inventory.stopRecordNames(selected);
+                    if (stopped > 0) msg(sender, "&aInventory history recording stopped for " + stopped + " profile(s).");
+                    else msg(sender, "&eNone of the selected profiles was actively recording inventory history.");
                 }
             }
             case "back" -> {
@@ -898,7 +967,11 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 List<Player> selected = targets.resolve(sender, a[2]);
                 int restored = 0;
                 for (Player player : selected) if (inventory.back(player, a[3])) restored++;
-                msg(sender, "&aRestored inventory history for " + restored + " player(s).");
+                if (restored == 0) {
+                    msg(sender, "&eNo snapshot was available at least " + a[3] + " ago for the selected player(s).");
+                } else {
+                    msg(sender, "&aRestored inventory history for " + restored + " player(s).");
+                }
             }
             case "lock", "unlock" -> {
                 if (a.length != 4) {
@@ -1022,7 +1095,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                             "/uop protect add <target> [uuid|ip|both]");
                     return;
                 }
-                String mode = a.length == 4 ? a[3] : "both";
+                String mode = a.length == 4 ? a[3]
+                        : plugin.getConfig().getString("protection.default-mode", "uuid");
                 if (!List.of("uuid", "ip", "both").contains(mode.toLowerCase(Locale.ROOT))) {
                     throw new IllegalArgumentException("Protection mode must be uuid, ip or both.");
                 }
@@ -1041,7 +1115,11 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "list" -> msg(sender, "&fProtected identities: &e" + String.join(", ", protection.list()));
             case "reset" -> {
-                if (a.length != 2) throw new IllegalArgumentException("Usage: /uop protect reset");
+                if (a.length != 3 || !a[2].equalsIgnoreCase("confirm")) {
+                    hint(sender, "Confirm removal of every protected identity",
+                            "/uop protect reset confirm");
+                    return;
+                }
                 protection.reset();
                 msg(sender, "&aAll protected identity entries cleared.");
             }
@@ -1050,7 +1128,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
 
     private void permission(CommandSender sender, String[] a) {
-        if (!admin(sender)) throw new IllegalArgumentException("UOP permission administration is OP/console only.");
+        require(sender, "uop.permission");
         if (a.length < 2) {
             hint(sender, "Choose permission operation", "/uop permission <grant|revoke|list|check|reset>");
             return;
@@ -1084,9 +1162,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 }
             }
             case "reset" -> {
-                if (a.length == 3 && a[2].equalsIgnoreCase("all")) {
+                if (a.length == 4 && a[2].equalsIgnoreCase("all") && a[3].equalsIgnoreCase("confirm")) {
                     permissions.resetAll();
                     msg(sender, "&aAll UOP custom permission grants reset.");
+                    return;
+                }
+                if (a.length == 3 && a[2].equalsIgnoreCase("all")) {
+                    hint(sender, "Confirm removing every UOP custom permission grant",
+                            "/uop permission reset all confirm");
                     return;
                 }
                 if (a.length != 3 && a.length != 4) {
@@ -1103,16 +1186,44 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    private void reset(CommandSender sender, String[] a) {
+    private void pending(CommandSender sender, String[] a) {
         require(sender, "uop.admin");
-        if (a.length != 2 || !a[1].equalsIgnoreCase("all")) {
-            hint(sender, "Type all to reset UOP persistent state", "/uop reset all");
+        if (a.length < 3) {
+            hint(sender, "Inspect or clear offline actions",
+                    "/uop pending <list|clear> <player> [confirm]");
             return;
         }
-        for (String key : new ArrayList<>(plugin.store().data().getKeys(false))) {
-            if (!key.equals("schema-version")) plugin.store().data().set(key, null);
+        String action = a[1].toLowerCase(Locale.ROOT);
+        String playerName = TargetResolver.clean(a[2]);
+        TeamService.validatePlayerName(playerName);
+        if (action.equals("list")) {
+            int count = pending.pendingCount(playerName);
+            msg(sender, "&fPending actions for &e" + playerName + "&f: &e" + count);
+            for (String description : pending.pendingDescriptions(playerName)) msg(sender, "&7" + description);
+            if (count == 0) msg(sender, "&7(none)");
+            return;
         }
-        plugin.store().save();
+        if (action.equals("clear")) {
+            if (a.length != 4 || !a[3].equalsIgnoreCase("confirm")) {
+                hint(sender, "Confirm deletion of queued actions",
+                        "/uop pending clear " + playerName + " confirm");
+                return;
+            }
+            int removed = pending.pendingCount(playerName);
+            pending.clearPending(playerName);
+            msg(sender, "&aCleared " + removed + " pending action(s) for &f" + playerName);
+            return;
+        }
+        throw new IllegalArgumentException("Pending action must be list or clear.");
+    }
+
+    private void reset(CommandSender sender, String[] a) {
+        require(sender, "uop.admin");
+        if (a.length != 3 || !a[1].equalsIgnoreCase("all") || !a[2].equalsIgnoreCase("confirm")) {
+            hint(sender, "Confirm destructive UOP data reset", "/uop reset all confirm");
+            return;
+        }
+        plugin.resetAllUopData();
         msg(sender, "&aUOP state reset. Server-managed player inventories were not edited.");
     }
 
@@ -1145,10 +1256,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] a) {
         try {
-            if (a.length == 1) return matching(ROOTS, a[0]);
+            if (a.length == 1) {
+                List<String> allowed = ROOTS.stream().filter(root -> root.equals("help") || root.equals("version")
+                        || rootAllowed(sender, root)).toList();
+                return matching(allowed, a[0]);
+            }
             String root = a[0].toLowerCase(Locale.ROOT);
             if (root.equals("help") && a.length == 2) return matching(List.of("team", "armor", "checkpoint", "damage",
-                    "enchant", "disenchant", "freeze", "unfreeze", "immortal", "inv", "name", "protect", "permission", "admin"), a[1]);
+                    "enchant", "disenchant", "freeze", "unfreeze", "immortal", "inv", "name", "protect", "permission", "admin", "pending"), a[1]);
             if (root.equals("team")) return teamTabs(a);
             if (root.equals("armor")) return armorTabs(a);
             if (root.equals("checkpoint")) return checkpointTabs(a);
@@ -1167,6 +1282,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 }
             }
             if (root.equals("inv")) return inventoryTabs(sender, a);
+            if (root.equals("pending")) return pendingTabs(a);
             if (root.equals("name")) return nameTabs(a);
             if (root.equals("protect")) return protectTabs(a);
             if (root.equals("permission")) return permissionTabs(a);
@@ -1178,6 +1294,87 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
 
 
+    private boolean rootAllowed(CommandSender sender, String root) {
+        if (root.equals("pending")) return admin(sender) || sender.hasPermission("uop.admin")
+                || sender instanceof Player player && permissions.has(player, "uop.admin");
+        if (root.equals("permission")) return admin(sender) || sender.hasPermission("uop.permission")
+                || sender instanceof Player player && permissions.has(player, "uop.permission");
+        if (root.equals("reload") || root.equals("reset")) return admin(sender)
+                || sender.hasPermission("uop.admin")
+                || sender instanceof Player player && permissions.has(player, "uop.admin");
+        String node = switch (root) {
+            case "armor" -> "uop.armor";
+            case "checkpoint" -> "uop.checkpoint";
+            case "damage" -> "uop.damage";
+            case "disenchant", "enchant" -> "uop.enchant";
+            case "freeze", "unfreeze" -> "uop.freeze";
+            case "immortal" -> "uop.immortal";
+            case "team" -> "uop.team";
+            case "inv" -> "uop.inv";
+            case "name" -> "uop.name";
+            case "protect" -> "uop.protect";
+            default -> "";
+        };
+        return !node.isBlank() && (admin(sender) || sender.hasPermission(node)
+                || sender instanceof Player player && permissions.has(player, node));
+    }
+
+    private List<String> pendingTabs(String[] a) {
+        if (a.length == 2) return matching(List.of("list", "clear"), a[1]);
+        if (a.length == 3 && List.of("list", "clear").contains(a[1].toLowerCase(Locale.ROOT))) {
+            return playerNames(a[2]);
+        }
+        if (a.length == 4 && a[1].equalsIgnoreCase("clear")) return matching(List.of("confirm"), a[3]);
+        return List.of();
+    }
+
+    private List<String> targetSuggestions(String partial) {
+        if (partial == null) return targets.suggestions("");
+        int square = 0, curly = 0, lastComma = -1;
+        char quote = 0;
+        boolean escaped = false;
+        for (int i = 0; i < partial.length(); i++) {
+            char ch = partial.charAt(i);
+            if (quote != 0) {
+                if (escaped) escaped = false;
+                else if (ch == '\\') escaped = true;
+                else if (ch == quote) quote = 0;
+                continue;
+            }
+            if (ch == '"' || ch == '\'') quote = ch;
+            else if (ch == '[') square++;
+            else if (ch == ']') square = Math.max(0, square - 1);
+            else if (ch == '{') curly++;
+            else if (ch == '}') curly = Math.max(0, curly - 1);
+            else if (ch == ',' && square == 0 && curly == 0) lastComma = i;
+        }
+        String listPrefix = lastComma < 0 ? "" : partial.substring(0, lastComma + 1);
+        String token = lastComma < 0 ? partial : partial.substring(lastComma + 1);
+        return targets.suggestions(token).stream().map(value -> listPrefix + value).toList();
+    }
+
+    private List<String> historyTimeSuggestions(String partial) {
+        long configuredWindow = Math.max(1L, plugin.getConfig().getLong("history.window-seconds", 300L));
+        long sampleTicks = Math.max(1L, plugin.getConfig().getLong("history.sample-ticks", 100L));
+        long maxSnapshots = Math.max(1L, plugin.getConfig().getLong("history.max-snapshots", 600L));
+        long snapshotCapacity = Math.max(1L, sampleTicks * maxSnapshots / 20L);
+        long effectiveWindow = Math.min(configuredWindow, snapshotCapacity);
+        Map<String, Long> options = new java.util.LinkedHashMap<>();
+        options.put("10s", 10L);
+        options.put("30s", 30L);
+        options.put("1m", 60L);
+        options.put("5m", 300L);
+        options.put("10m", 600L);
+        options.put("30m", 1800L);
+        options.put("1h", 3600L);
+        return options.entrySet().stream()
+                .filter(entry -> entry.getValue() <= effectiveWindow)
+                .map(Map.Entry::getKey)
+                .filter(value -> value.toLowerCase(Locale.ROOT).startsWith(
+                        partial == null ? "" : partial.toLowerCase(Locale.ROOT)))
+                .toList();
+    }
+
     private List<String> inventoryTabs(CommandSender sender, String[] a) {
         if (a.length == 2) return matching(List.of("view", "set", "remove", "give", "take", "clear",
                 "swap", "backup", "restore", "backups", "backup-delete", "record", "back", "lock", "unlock"), a[1]);
@@ -1186,7 +1383,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (action.equals("set")) {
             if (a.length == 3) return targets.suggestions(a[2]);
             if (a.length == 4) return matching(java.util.stream.IntStream.rangeClosed(0, 40).mapToObj(String::valueOf).toList(), a[3]);
-            if (a.length == 5) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[4]);
+            if (a.length == 5) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir() && m.isItem() && !m.isLegacy())
+                    .map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[4]);
             if (a.length == 6) return matching(List.of("1", "16", "32", "64"), a[5]);
         }
         if (action.equals("remove")) {
@@ -1195,7 +1393,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         }
         if (List.of("give", "take").contains(action)) {
             if (a.length == 3) return targets.suggestions(a[2]);
-            if (a.length == 4) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir()).map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[3]);
+            if (a.length == 4) return matching(java.util.Arrays.stream(Material.values()).filter(m -> !m.isAir() && m.isItem() && !m.isLegacy())
+                    .map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), a[3]);
             if (a.length == 5) return matching(List.of("1", "16", "32", "64"), a[4]);
         }
         if (action.equals("swap")) {
@@ -1216,13 +1415,13 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         }
         if (action.equals("record")) {
             if (a.length == 3) return matching(List.of("start", "stop", "status"), a[2]);
-            if (a.length == 4 && List.of("start", "stop").contains(a[2])) return targets.suggestions(a[3]);
+            if (a.length == 4 && (a[2].equalsIgnoreCase("start") || a[2].equalsIgnoreCase("stop"))) return targetSuggestions(a[3]);
         }
         if (action.equals("lock") || action.equals("unlock")) {
             if (a.length == 3) return matching(List.of("inventory", "armor", "drop"), a[2]);
             if (a.length == 4) return targets.suggestions(a[3]);
         }
-        if (action.equals("back") && a.length == 4) return matching(List.of("10s", "30s", "1m", "5m", "10m", "30m", "1h"), a[3]);
+        if (action.equals("back") && a.length == 4) return historyTimeSuggestions(a[3]);
         return List.of();
     }
 
@@ -1247,28 +1446,42 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
 
     private List<String> protectTabs(String[] a) {
         if (a.length == 2) return matching(List.of("add", "remove", "list", "reset"), a[1]);
-        if (a.length == 3 && List.of("add", "remove").contains(a[1])) return targets.suggestions(a[2]);
-        if (a.length == 4 && a[1].equals("add")) return matching(List.of("uuid", "ip", "both"), a[3]);
+        String action = a[1].toLowerCase(Locale.ROOT);
+        if (a.length == 3 && List.of("add", "remove").contains(action)) return targets.suggestions(a[2]);
+        if (a.length == 3 && action.equals("reset")) return matching(List.of("confirm"), a[2]);
+        if (a.length == 4 && action.equals("add")) return matching(List.of("uuid", "ip", "both"), a[3]);
         return List.of();
     }
 
     private List<String> permissionTabs(String[] a) {
         if (a.length == 2) return matching(List.of("grant", "revoke", "list", "check", "reset"), a[1]);
-        if (a.length == 3 && List.of("grant", "revoke", "list", "check", "reset").contains(a[1])) {
-            if (a[1].equals("reset") && "all".startsWith(a[2].toLowerCase(Locale.ROOT))) return List.of("all");
+        String action = a[1].toLowerCase(Locale.ROOT);
+        if (a.length == 3 && List.of("grant", "revoke", "list", "check", "reset").contains(action)) {
+            if (action.equals("reset")) {
+                List<String> options = new ArrayList<>();
+                if ("all".startsWith(a[2].toLowerCase(Locale.ROOT))) options.add("all");
+                options.addAll(targets.suggestions(a[2]));
+                return options;
+            }
             return targets.suggestions(a[2]);
         }
-        if (a.length >= 4 && List.of("grant", "revoke").contains(a[1])) {
+        if (a.length >= 4 && List.of("grant", "revoke").contains(action)) {
             return matching(List.of("uop.*", "uop.armor", "uop.checkpoint", "uop.damage", "uop.enchant",
                     "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name", "uop.protect",
                     "uop.permission", "uop.admin", "all"), a[a.length - 1]);
         }
-        if (a.length == 4 && a[1].equals("check")) return matching(List.of("uop.*", "uop.armor", "uop.checkpoint",
+        if (a.length == 4 && action.equals("check")) return matching(List.of("uop.*", "uop.armor", "uop.checkpoint",
                 "uop.damage", "uop.enchant", "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name",
                 "uop.protect", "uop.permission", "uop.admin"), a[3]);
-        if (a.length == 4 && a[1].equals("reset")) return matching(List.of("all", "uop.*", "uop.armor",
+        if (a.length == 4 && action.equals("reset") && a[2].equalsIgnoreCase("all")) {
+            return matching(List.of("confirm"), a[3]);
+        }
+        if (a.length == 4 && action.equals("reset")) return matching(List.of("all", "uop.*", "uop.armor",
                 "uop.checkpoint", "uop.damage", "uop.enchant", "uop.freeze", "uop.immortal", "uop.team",
                 "uop.inv", "uop.name", "uop.protect", "uop.permission", "uop.admin"), a[3]);
+        if (a.length == 5 && action.equals("reset") && a[3].equalsIgnoreCase("all")) {
+            return matching(List.of("confirm"), a[4]);
+        }
         return List.of();
     }
 
@@ -1276,9 +1489,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (a.length == 2) return matching(List.of("create", "delete", "list", "info", "add", "remove", "removeall", "tp", "settings"), a[1]);
         if (a.length == 3 && List.of("delete", "info", "removeall").contains(a[1])) return teamNames(a[2]);
         if (a.length == 3 && a[1].equals("add")) return teamNames(a[2]);
+        if (a.length == 3 && a[1].equalsIgnoreCase("tp")) return teamNames(a[2]);
+        if (a.length == 4 && a[1].equalsIgnoreCase("tp")) return playerNames(a[3]);
         if (a.length >= 4 && a[1].equals("add")) return targets.suggestions(a[a.length - 1]);
         if (a.length == 4 && a[1].equals("remove")) return memberNames(a[2], a[3]);
-        if (a.length == 4 && a[1].equals("tp")) return playerNames(a[3]);
         if (a.length == 3 && a[1].equals("settings")) return matching(List.of("friendlyfire"), a[2]);
         if (a.length == 4 && a[1].equals("settings")) return teamNames(a[3]);
         if (a.length == 5 && a[1].equals("settings")) return matching(List.of("on", "off"), a[4]);
@@ -1341,6 +1555,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (a.length == 3 && List.of("tp", "back", "delete").contains(a[1])) return checkpointNames(a[2]);
         if (a.length == 4 && List.of("tp", "back", "save").contains(a[1])) return targets.suggestions(a[3]);
         if (a.length == 3 && a[1].equals("clear")) return matching(List.of("all"), a[2]);
+        if (a.length == 4 && a[1].equals("clear") && a[2].equalsIgnoreCase("all")) return matching(List.of("confirm"), a[3]);
         return List.of();
     }
 
@@ -1352,7 +1567,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (a.length == 3 && List.of("set", "pair").contains(a[1])) return targets.suggestions(a[2]);
         if (a.length == 4 && List.of("set", "pair").contains(a[1])) return targets.suggestions(a[3]);
         if (a.length == 5 && List.of("set", "pair").contains(a[1])) return matching(List.of("0", "0.25", "0.5", "1", "1.5", "2", "5", "10"), a[4]);
-        if (a.length == 3 && a[1].equals("reset")) return matching(List.of("global", "outgoing", "incoming", "pair", "all"), a[2]);
+        if (a.length == 3 && a[1].equalsIgnoreCase("reset")) return matching(List.of("global", "outgoing", "incoming", "pair", "all"), a[2]);
+        if (a.length == 4 && a[1].equalsIgnoreCase("reset") && a[2].equalsIgnoreCase("all"))
+            return matching(List.of("confirm"), a[3]);
         if (a.length == 4 && a[1].equals("reset") && List.of("outgoing", "incoming").contains(a[2])) return targets.suggestions(a[3]);
         if (a.length == 4 && a[1].equals("reset") && a[2].equals("pair")) return targets.suggestions(a[3]);
         if (a.length == 5 && a[1].equals("reset") && a[2].equals("pair")) return targets.suggestions(a[4]);

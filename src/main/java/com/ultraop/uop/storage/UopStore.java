@@ -7,10 +7,20 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
-/** Main-thread YAML store with atomic replacement. */
+/** Main-thread YAML store with atomic replacement and pre-reset rolling backups. */
 public final class UopStore {
+    private static final int MAX_BACKUPS = 10;
+    private static final DateTimeFormatter BACKUP_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
     private final JavaPlugin plugin;
     private final File file;
     private YamlConfiguration data;
@@ -60,6 +70,63 @@ public final class UopStore {
 
     public synchronized YamlConfiguration data() {
         return data;
+    }
+
+    /** Creates a zip backup of the complete plugin data folder before destructive actions. */
+    public synchronized Path createBackup(String reason) {
+        Path pluginFolder = plugin.getDataFolder().toPath();
+        Path backupDirectory = pluginFolder.resolve("backups");
+        String safeReason = reason == null ? "manual" : reason.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9_-]", "-");
+        String stamp = LocalDateTime.now().format(BACKUP_TIME);
+        Path backup = backupDirectory.resolve("UOP-" + stamp + "-" + safeReason + ".zip");
+        try {
+            Files.createDirectories(backupDirectory);
+            try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(backup))) {
+                if (Files.exists(pluginFolder)) {
+                    try (var paths = Files.walk(pluginFolder)) {
+                        for (Path source : paths.filter(Files::isRegularFile)
+                                .filter(path -> !path.startsWith(backupDirectory))
+                                .sorted().toList()) {
+                            String entryName = pluginFolder.relativize(source).toString()
+                                    .replace(File.separatorChar, '/');
+                            zip.putNextEntry(new ZipEntry(entryName));
+                            Files.copy(source, zip);
+                            zip.closeEntry();
+                        }
+                    }
+                }
+            }
+            if (Files.size(backup) == 0L) {
+                Files.deleteIfExists(backup);
+                throw new IOException("Backup archive is empty.");
+            }
+            pruneBackups(backupDirectory);
+            plugin.getLogger().info("Created UOP safety backup: " + backup.getFileName());
+            return backup;
+        } catch (IOException | RuntimeException ex) {
+            try { Files.deleteIfExists(backup); } catch (IOException ignored) { /* preserve original failure */ }
+            throw new IllegalStateException("UOP safety backup failed; destructive operation was cancelled.", ex);
+        }
+    }
+
+    private void pruneBackups(Path directory) throws IOException {
+        List<Path> backups;
+        try (var paths = Files.list(directory)) {
+            backups = paths.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().startsWith("UOP-")
+                            && path.getFileName().toString().endsWith(".zip"))
+                    .sorted(Comparator.comparingLong(this::lastModified).reversed())
+                    .toList();
+        }
+        for (int index = MAX_BACKUPS; index < backups.size(); index++) {
+            Files.deleteIfExists(backups.get(index));
+        }
+    }
+
+    private long lastModified(Path path) {
+        try { return Files.getLastModifiedTime(path).toMillis(); }
+        catch (IOException ignored) { return Long.MIN_VALUE; }
     }
 
     public synchronized void save() {

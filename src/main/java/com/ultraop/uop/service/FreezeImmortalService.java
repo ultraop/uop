@@ -5,13 +5,21 @@ import org.bukkit.entity.Player;
 
 public final class FreezeImmortalService {
     private final PlayerProfileService profiles;
+    private volatile boolean exemptOps = true;
+    private volatile String exemptPermission = "uop.freeze.exempt";
 
     public FreezeImmortalService(PlayerProfileService profiles) {
         this.profiles = profiles;
     }
 
+    public void configureExemptions(boolean exemptOps, String permission) {
+        this.exemptOps = exemptOps;
+        this.exemptPermission = permission == null ? "" : permission.trim();
+    }
+
     public boolean exempt(Player player) {
-        return player.isOp() || player.hasPermission("uop.freeze.exempt");
+        return (exemptOps && player.isOp())
+                || (!exemptPermission.isBlank() && player.hasPermission(exemptPermission));
     }
 
     public void freeze(String playerName, String mode) {

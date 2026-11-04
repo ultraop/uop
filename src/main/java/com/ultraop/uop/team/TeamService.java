@@ -105,10 +105,18 @@ public final class TeamService {
 
     public void remove(String team, String playerName) {
         requireTeam(team);
+        validatePlayerName(playerName);
+        String currentTeam = teamOf(playerName);
+        boolean listed = contains(team, playerName);
+        if (!listed && (currentTeam == null || !key(team).equals(key(currentTeam)))) {
+            throw new IllegalArgumentException(playerName + " is not a member of team " + displayName(team) + ".");
+        }
         List<String> names = members(team);
         names.removeIf(n -> key(n).equals(key(playerName)));
         store.data().set(base(team) + ".members", names);
-        if (key(team).equals(key(teamOf(playerName)))) store.data().set("players." + key(playerName) + ".team", null);
+        if (currentTeam != null && key(team).equals(key(currentTeam))) {
+            store.data().set("players." + key(playerName) + ".team", null);
+        }
         store.save();
     }
 

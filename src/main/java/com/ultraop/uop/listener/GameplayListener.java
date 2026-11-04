@@ -5,13 +5,18 @@ import com.ultraop.uop.service.DamageService;
 import com.ultraop.uop.service.FreezeImmortalService;
 import com.ultraop.uop.service.PendingActionService;
 import org.bukkit.Location;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDismountEvent;
+import org.bukkit.event.vehicle.VehicleMoveEvent;
+import org.bukkit.util.Vector;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -40,9 +45,11 @@ public final class GameplayListener implements Listener {
     private final FreezeImmortalService freeze;
     private final DamageService damage;
     private final PendingActionService pending;
+    private final JavaPlugin plugin;
 
-    public GameplayListener(PlayerProfileService profiles, FreezeImmortalService freeze, DamageService damage,
+    public GameplayListener(JavaPlugin plugin, PlayerProfileService profiles, FreezeImmortalService freeze, DamageService damage,
                             PendingActionService pending) {
+        this.plugin = plugin;
         this.profiles = profiles;
         this.freeze = freeze;
         this.damage = damage;
@@ -52,8 +59,12 @@ public final class GameplayListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         profiles.observe(event.getPlayer());
-        int applied = pending.applyOnJoin(event.getPlayer());
-        if (applied > 0) event.getPlayer().sendMessage("§7[§6UOP§7] §aRestored " + applied + " pending Team action(s).");
+        Player player = event.getPlayer();
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (!player.isOnline()) return;
+            int applied = pending.applyOnJoin(player);
+            if (applied > 0) player.sendMessage("§7[§6UOP§7] §aRestored " + applied + " pending Team action(s).");
+        });
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -84,9 +95,13 @@ public final class GameplayListener implements Listener {
         Player attacker = null;
         if (event instanceof EntityDamageByEntityEvent byEntity) {
             if (byEntity.getDamager() instanceof Player player) attacker = player;
-            else if (byEntity.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player player) attacker = player;
+            else if (byEntity.getDamager() instanceof Projectile projectile
+                    && projectile.getShooter() instanceof Player player) attacker = player;
+            else if (byEntity.getDamager() instanceof Tameable tameable
+                    && tameable.getOwner() instanceof Player player) attacker = player;
         }
-        if (freeze.full(victim) || (attacker != null && freeze.frozen(attacker))) {
+        if (freeze.full(victim) || (attacker != null && freeze.frozen(attacker))
+                || damage.friendlyFireDisabled(attacker, victim)) {
             event.setCancelled(true);
             return;
         }
@@ -102,11 +117,28 @@ public final class GameplayListener implements Listener {
     public void onDrop(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
         if (freeze.frozen(player) || profiles.locked(player, "drop")
-                || profiles.locked(player, "inventory") || profiles.locked(player, "armor")) {
+                || profiles.locked(player, "inventory")
+                || profiles.locked(player, "armor") && isArmor(event.getItemDrop().getItemStack())) {
             event.setCancelled(true);
         }
     }
 
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onVehicleMove(VehicleMoveEvent event) {
+        boolean frozenPassenger = event.getVehicle().getPassengers().stream()
+                .anyMatch(entity -> entity instanceof Player player && freeze.frozen(player));
+        if (!frozenPassenger) return;
+        event.getVehicle().teleport(event.getFrom());
+        event.getVehicle().setVelocity(new Vector(0.0, 0.0, 0.0));
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onFrozenDismount(EntityDismountEvent event) {
+        if (event.getEntity() instanceof Player player && freeze.frozen(player)) {
+            event.setCancelled(true);
+        }
+    }
 
     @EventHandler(ignoreCancelled = true)
     public void onHotbarChange(PlayerItemHeldEvent event) {
@@ -159,10 +191,14 @@ public final class GameplayListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
+        boolean rightClick = event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR
+                || event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK;
+        if (profiles.locked(player, "armor") && rightClick && isArmor(event.getItem())) {
+            event.setCancelled(true);
+            return;
+        }
         if (!freeze.frozen(player)) return;
-        boolean armorEquip = !freeze.full(player) && isArmor(event.getItem())
-                && (event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR
-                || event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK);
+        boolean armorEquip = !freeze.full(player) && isArmor(event.getItem()) && rightClick;
         if (!armorEquip) event.setCancelled(true);
     }
 
@@ -213,7 +249,9 @@ public final class GameplayListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        if (profiles.locked(player, "armor") && event.getRawSlots().stream().anyMatch(slot -> slot >= 5 && slot <= 8)) {
+        if (profiles.locked(player, "armor") && event.getRawSlots().stream()
+                .anyMatch(rawSlot -> event.getView().getSlotType(rawSlot)
+                        == org.bukkit.event.inventory.InventoryType.SlotType.ARMOR)) {
             event.setCancelled(true);
         }
     }

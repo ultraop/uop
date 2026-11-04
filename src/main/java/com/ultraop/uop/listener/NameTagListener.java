@@ -31,6 +31,7 @@ public final class NameTagListener implements Listener {
         Player player = event.getPlayer();
         if (!names.hasTag(player)) return;
         event.renderer(ChatRenderer.viewerUnaware((source, sourceDisplayName, message) ->
-                names.chatName(source).append(net.kyori.adventure.text.Component.text(" » ")).append(message)));
+                names.chatPrefix(source).append(sourceDisplayName)
+                        .append(net.kyori.adventure.text.Component.text(" » ")).append(message)));
     }
 }

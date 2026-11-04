@@ -269,7 +269,7 @@ public final class ArmorKitService {
         for (Enchantment enchantment : Registry.ENCHANTMENT) {
             String id = enchantment.getKey().getKey().toLowerCase(Locale.ROOT);
             if (CURSES.contains(id) || id.endsWith("_curse") || !enchantment.canEnchantItem(item)) continue;
-            if (!allowedAtTier(id, tier)) continue;
+            if (!allowedAtTier(id, tier, item)) continue;
             int level = tier >= 9 ? enchantment.getMaxLevel() : Math.min(tier, enchantment.getMaxLevel());
             if (level < 1) continue;
             ItemMeta meta = item.getItemMeta();
@@ -279,16 +279,58 @@ public final class ArmorKitService {
         }
     }
 
-    private boolean allowedAtTier(String id, int tier) {
-        if (tier == 1) return id.equals("mending");
-        if (tier == 2) return id.equals("mending") || id.equals("unbreaking");
-        if (tier <= 4) return id.equals("mending") || id.equals("unbreaking")
-                || id.endsWith("protection") || id.equals("feather_falling") || id.equals("respiration");
-        if (tier <= 6) return allowedAtTier(id, 4) || id.equals("aqua_affinity")
-                || id.equals("depth_strider") || id.equals("soul_speed") || id.equals("swift_sneak");
-        if (tier <= 8) return allowedAtTier(id, 6) || id.equals("thorns") || id.equals("frost_walker")
-                || id.equals("silk_touch") || id.equals("fortune");
-        return true;
+    private boolean allowedAtTier(String id, int tier, ItemStack item) {
+        boolean common = id.equals("mending") || (tier >= 2 && id.equals("unbreaking"));
+        if (common) return true;
+
+        String type = item.getType().name();
+        boolean armor = type.endsWith("_HELMET") || type.endsWith("_CHESTPLATE")
+                || type.endsWith("_LEGGINGS") || type.endsWith("_BOOTS") || type.equals("TURTLE_HELMET");
+        boolean sword = type.endsWith("_SWORD");
+        boolean bow = type.equals("BOW");
+        boolean crossbow = type.equals("CROSSBOW");
+        boolean trident = type.equals("TRIDENT");
+        boolean mace = type.equals("MACE");
+
+        if (armor) {
+            if (tier < 3) return false;
+            if (id.equals("protection") || id.equals("feather_falling") || id.equals("respiration")) return true;
+            if (tier >= 5 && (id.equals("aqua_affinity") || id.equals("depth_strider")
+                    || id.equals("soul_speed"))) return true;
+            return tier >= 7 && (id.equals("thorns") || id.equals("swift_sneak"));
+        }
+        if (sword) {
+            if (tier < 3) return false;
+            if (id.equals("sharpness")) return true;
+            if (tier >= 5 && (id.equals("looting") || id.equals("fire_aspect"))) return true;
+            return tier >= 7 && (id.equals("knockback") || id.equals("sweeping_edge"));
+        }
+        if (bow) {
+            if (tier < 3) return false;
+            if (id.equals("power")) return true;
+            return tier >= 5 && (id.equals("punch") || id.equals("flame"));
+        }
+        if (crossbow) {
+            if (tier < 3) return false;
+            if (id.equals("quick_charge")) return true;
+            return tier >= 5 && id.equals("piercing");
+        }
+        if (trident) {
+            if (tier < 3) return false;
+            if (id.equals("impaling")) return true;
+            if (tier >= 5 && id.equals("loyalty")) return true;
+            return tier >= 7 && id.equals("channeling");
+        }
+        if (mace) {
+            if (tier < 3) return false;
+            if (id.equals("density")) return true;
+            return tier >= 7 && id.equals("wind_burst");
+        }
+
+        // Pickaxes, axes, shovels and hoes use a non-conflicting tool preset.
+        if (tier < 3) return false;
+        if (id.equals("efficiency")) return true;
+        return tier >= 5 && id.equals("fortune");
     }
 
     private String pickMaterial(String material) {

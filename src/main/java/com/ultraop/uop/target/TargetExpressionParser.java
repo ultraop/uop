@@ -1,11 +1,13 @@
 package com.ultraop.uop.target;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 /**
- * Parses a comma-separated target expression while preserving commas inside
- * Minecraft selector brackets, such as @a[distance=..10,limit=2].
+ * Splits target lists without treating commas inside selector structures or
+ * quoted NBT strings as separators.
  */
 public final class TargetExpressionParser {
     private TargetExpressionParser() {}
@@ -17,33 +19,61 @@ public final class TargetExpressionParser {
 
         List<String> parts = new ArrayList<>();
         StringBuilder token = new StringBuilder();
-        boolean inSelectorArguments = false;
+        Deque<Character> brackets = new ArrayDeque<>();
+        char quote = 0;
+        boolean escaped = false;
 
         for (int i = 0; i < expression.length(); i++) {
             char current = expression.charAt(i);
 
-            if (current == '[') {
-                if (inSelectorArguments) {
-                    throw new IllegalArgumentException("Nested selector brackets are not supported.");
+            if (quote != 0) {
+                token.append(current);
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\') {
+                    escaped = true;
+                } else if (current == quote) {
+                    quote = 0;
                 }
-                inSelectorArguments = true;
-            } else if (current == ']') {
-                if (!inSelectorArguments) {
-                    throw new IllegalArgumentException("Selector has an unexpected closing bracket.");
-                }
-                inSelectorArguments = false;
+                continue;
             }
 
-            if (current == ',' && !inSelectorArguments) {
+            if (current == '"' || current == '\'') {
+                quote = current;
+                token.append(current);
+                continue;
+            }
+
+            if (current == '[' && brackets.contains('[') && !brackets.contains('{')) {
+                throw new IllegalArgumentException("Selector brackets cannot be nested directly.");
+            }
+            if (current == '[' || current == '{') {
+                brackets.push(current);
+                token.append(current);
+                continue;
+            }
+
+            if (current == ']' || current == '}') {
+                if (brackets.isEmpty()) {
+                    throw new IllegalArgumentException("Target expression has an unexpected closing bracket.");
+                }
+                char expected = current == ']' ? '[' : '{';
+                if (brackets.pop() != expected) {
+                    throw new IllegalArgumentException("Target expression contains mismatched brackets.");
+                }
+                token.append(current);
+                continue;
+            }
+
+            if (current == ',' && brackets.isEmpty()) {
                 addToken(parts, token);
             } else {
                 token.append(current);
             }
         }
 
-        if (inSelectorArguments) {
-            throw new IllegalArgumentException("Selector is missing a closing bracket.");
-        }
+        if (quote != 0) throw new IllegalArgumentException("Target expression has an unterminated quoted value.");
+        if (!brackets.isEmpty()) throw new IllegalArgumentException("Target expression has an unclosed bracket.");
 
         addToken(parts, token);
         return List.copyOf(parts);

@@ -45,13 +45,17 @@ public final class UopPlugin extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         initializeServices();
+        if (!Bukkit.getOnlineMode()) {
+            getLogger().warning("online-mode=false: Minecraft UUIDs are not authenticated by Mojang. "
+                    + "Username-based UOP profiles and UUID protection cannot prove player identity on this server.");
+        }
         PluginCommand root = getCommand("uop");
         if (root == null) throw new IllegalStateException("The /uop command is missing from plugin.yml");
         UopCommand executor = new UopCommand(this, teams, targets, kits, loadouts, checkpoints,
                 damage, enchants, states, profiles, pending, inventory, names, protection, permissions);
         root.setExecutor(executor);
         root.setTabCompleter(executor);
-        getServer().getPluginManager().registerEvents(new GameplayListener(profiles, states, damage, pending), this);
+        getServer().getPluginManager().registerEvents(new GameplayListener(this, profiles, states, damage, pending), this);
         getServer().getPluginManager().registerEvents(new NameTagListener(names), this);
         getServer().getPluginManager().registerEvents(new ProtectionListener(protection), this);
         long sampleTicks = Math.max(1L, getConfig().getLong("history.sample-ticks", 100L));
@@ -65,13 +69,14 @@ public final class UopPlugin extends JavaPlugin {
         targets = new TargetResolver(teams);
         profiles = new PlayerProfileService(store, teams);
         kits = new ArmorKitService();
-        loadouts = new ArmorLoadoutService(store);
-        checkpoints = new CheckpointService(store);
+        inventory = new InventoryService(this, store, teams);
+        loadouts = new ArmorLoadoutService(store, inventory);
+        checkpoints = new CheckpointService(store, inventory);
         damage = new DamageService(store, teams, targets);
         enchants = new EnchantService();
         states = new FreezeImmortalService(profiles);
+        configureFreezeExemptions();
         pending = new PendingActionService(store, this, kits, loadouts, checkpoints, enchants);
-        inventory = new InventoryService(this, store, teams);
         names = new NameService(store);
         protection = new ProtectionService(store);
         permissions = new PermissionService(store);
@@ -80,7 +85,33 @@ public final class UopPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (historyTask != -1) Bukkit.getScheduler().cancelTask(historyTask);
+        if (inventory != null) inventory.shutdown();
+        if (names != null) names.shutdown();
         if (store != null) store.save();
+    }
+
+    private void configureFreezeExemptions() {
+        if (states != null) {
+            states.configureExemptions(
+                    getConfig().getBoolean("freeze.exempt-ops", true),
+                    getConfig().getString("freeze.exempt-permission", "uop.freeze.exempt"));
+        }
+    }
+
+    /** Clears persisted UOP data and all runtime state that could recreate it. */
+    public void resetAllUopData() {
+        if (names != null) names.shutdown();
+        if (inventory != null) inventory.flushHistoryWrites();
+        store.save();
+        store.createBackup("reset-all");
+        if (inventory != null) inventory.clearRuntimeRecordingState();
+        for (String key : new java.util.ArrayList<>(store.data().getKeys(false))) {
+            if (!key.equals("schema-version")) store.data().set(key, null);
+        }
+        store.save();
+        if (profiles != null) profiles.clearRuntimeCache();
+        if (names != null) names.refreshTagCache();
+        if (protection != null) protection.refreshCache();
     }
 
     public void reloadUop() {
@@ -88,14 +119,18 @@ public final class UopPlugin extends JavaPlugin {
         store.save();
         reloadConfig();
         store.reload();
+        profiles.clearRuntimeCache();
 
         teams.defaultFriendlyFire(getConfig().getBoolean("teams.friendly-fire-default", true));
+        configureFreezeExemptions();
 
         if (historyTask != -1) Bukkit.getScheduler().cancelTask(historyTask);
         long sampleTicks = Math.max(1L, getConfig().getLong("history.sample-ticks", 100L));
         historyTask = Bukkit.getScheduler()
                 .runTaskTimer(this, inventory::tickHistory, sampleTicks, sampleTicks).getTaskId();
 
+        names.refreshTagCache();
+        protection.refreshCache();
         names.refreshAll();
     }
 

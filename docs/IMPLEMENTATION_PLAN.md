@@ -4,7 +4,7 @@
 - [x] Inspect legacy Paper repository and record its reusable resources.
 - [x] Define upgraded command grammar and target UX.
 - [x] Establish new package/build/bootstrap documentation.
-- [ ] Add Gradle wrapper and run a clean Paper build.
+- [ ] Add Gradle wrapper scripts/JAR; clean builds currently run in CI using an explicit Gradle 9.5.1 installation.
 - [x] Add CI JAR validation and core validation tests.
 
 ## Phase 1 — Core platform
@@ -22,7 +22,8 @@
 - [x] Independent persistent PlayerProfile.
 - [x] Same-name reconnect retains membership and profile-keyed durable settings.
 - [ ] Explicit cross-Team move and duplicate-membership rules.
-- [ ] Offline-mode spoofing risk documentation and UUID-aware option.
+- [x] Document offline-mode spoofing risk, log a warning when online-mode is disabled, and default new protection entries to UUID mode.
+- [ ] Migrate all username-keyed profiles and permissions to UUID identities.
 
 ## Phase 3 — Legacy feature parity
 - [x] Armor set/save/list/delete/saved/random give, classic weapon set and safe remove.
@@ -32,7 +33,11 @@
 - [x] Normal/full freeze.
 - [x] Inventory operations, Player/Team swap, backup, history and locks.
 - [x] Persist active history sessions across reconnect/restart; retry failed samples without cancelling the sampler.
-- [x] Name visibility/tags, protection and permissions.
+- [x] Store per-player history separately using atomic background file writes; migrate legacy YAML history lazily.
+- [x] Cache freeze/immortal/lock state for hot event paths.
+- [x] Automatically back up current inventory before applying a saved armor loadout, direct edits/clear, swaps and checkpoint restore.
+- [x] Create rolling full-data ZIP backups before destructive reset/clear operations.
+- [x] Name visibility/tags, protection and permissions. Chat tag rendering preserves external display-name formatting; overhead nameplate effect still needs live testing.
 - [ ] Complete Team support audit, including offline inventory operations and edge cases.
 
 ## Phase 4 — Requested upgrades
@@ -49,7 +54,7 @@
 ## Phase 5 — Hardening and release
 - [ ] Final command permission and argument audit.
 - [ ] Final TAB/hint audit across every argument and selector filter.
-- [ ] Selector edge-case tests.
+- [x] Selector edge-case tests (nested NBT lists, quoted commas, malformed brackets and empty entries).
 - [ ] No-partial-update tests for bulk Team operations.
 - [ ] Legacy data migration test with pre-migration backup.
 - [ ] Paper 1.21.11 live server tests.

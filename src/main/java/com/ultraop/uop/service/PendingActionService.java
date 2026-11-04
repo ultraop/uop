@@ -12,6 +12,8 @@ import java.util.Map;
 
 /** Replays selected Team operations for offline roster members on their next login. */
 public final class PendingActionService {
+    private static final long MAX_PENDING_AGE_MILLIS = 30L * 24 * 60 * 60 * 1000;
+    private static final int MAX_ATTEMPTS = 10;
     private final UopStore store;
     private final JavaPlugin plugin;
     private final ArmorKitService kits;
@@ -100,14 +102,49 @@ public final class PendingActionService {
     }
 
     private void queue(String playerName, Map<String, Object> action) {
+        if (playerName == null || !playerName.matches("[A-Za-z0-9_]{1,16}")) {
+            throw new IllegalArgumentException("Invalid pending-action player name.");
+        }
         List<Map<String, Object>> actions = new ArrayList<>();
+        long now = System.currentTimeMillis();
+        boolean duplicate = false;
         for (Map<?, ?> old : store.data().getMapList(path(playerName))) {
-            Map<String, Object> copy = new HashMap<>();
-            old.forEach((k, v) -> copy.put(String.valueOf(k), v));
+            Map<String, Object> copy = copy(old);
+            if (expired(copy, now)) continue;
+            if (samePayload(copy, action)) duplicate = true;
             actions.add(copy);
         }
-        actions.add(action);
+        if (!duplicate) {
+            action.put("created-at", now);
+            action.put("attempts", 0);
+            actions.add(action);
+        }
         store.data().set(path(playerName), actions);
+        store.save();
+    }
+
+    private Map<String, Object> copy(Map<?, ?> raw) {
+        Map<String, Object> result = new HashMap<>();
+        raw.forEach((key, value) -> result.put(String.valueOf(key), value));
+        return result;
+    }
+
+    private boolean expired(Map<String, Object> action, long now) {
+        Object created = action.get("created-at");
+        return created instanceof Number number
+                && (now - number.longValue() > MAX_PENDING_AGE_MILLIS || number.longValue() > now);
+    }
+
+    private boolean samePayload(Map<String, Object> first, Map<String, Object> second) {
+        Map<String, Object> left = new HashMap<>(first);
+        Map<String, Object> right = new HashMap<>(second);
+        left.keySet().removeIf(key -> key.equals("created-at") || key.equals("attempts"));
+        right.keySet().removeIf(key -> key.equals("created-at") || key.equals("attempts"));
+        return left.equals(right);
+    }
+
+    public void clearPending(String playerName) {
+        store.data().set(path(playerName), null);
         store.save();
     }
 
@@ -115,26 +152,57 @@ public final class PendingActionService {
         return store.data().getMapList(path(playerName)).size();
     }
 
+    public List<String> pendingDescriptions(String playerName) {
+        List<String> result = new ArrayList<>();
+        int index = 1;
+        for (Map<?, ?> action : store.data().getMapList(path(playerName))) {
+            Object attempts = action.get("attempts");
+            result.add(index++ + ". " + action.get("type") + " (attempts "
+                    + (attempts == null ? 0 : attempts) + ")");
+        }
+        return result;
+    }
+
     /** Runs once after the profile has been observed on PlayerJoinEvent. */
     public int applyOnJoin(Player player) {
         String actionPath = path(player.getName());
         List<Map<String, Object>> remaining = new ArrayList<>();
+        List<Map<?, ?>> pending = store.data().getMapList(actionPath);
         int applied = 0;
-        for (Map<?, ?> raw : store.data().getMapList(actionPath)) {
-            Map<String, Object> action = new HashMap<>();
-            raw.forEach((k, v) -> action.put(String.valueOf(k), v));
+        long now = System.currentTimeMillis();
+        for (Map<?, ?> raw : pending) {
+            Map<String, Object> action = copy(raw);
+            if (!action.containsKey("created-at")) action.put("created-at", now);
+            if (expired(action, now)) {
+                plugin.getLogger().warning("Expired pending UOP action discarded for " + player.getName()
+                        + ": " + action.get("type"));
+                continue;
+            }
             try {
                 if (applyOne(player, action)) applied++;
-                else remaining.add(action);
+                else retainForRetry(player, action, remaining, "operation could not be applied");
             } catch (Exception ex) {
-                remaining.add(action);
-                plugin.getLogger().warning("Pending UOP action retained for " + player.getName()
-                        + ": " + ex.getMessage());
+                retainForRetry(player, action, remaining, ex.getMessage());
             }
         }
         store.data().set(actionPath, remaining.isEmpty() ? null : remaining);
-        if (applied > 0 || !remaining.isEmpty()) store.save();
+        if (!pending.isEmpty()) store.save();
         return applied;
+    }
+
+    private void retainForRetry(Player player, Map<String, Object> action,
+                                List<Map<String, Object>> remaining, String reason) {
+        int attempts = action.get("attempts") instanceof Number number ? number.intValue() : 0;
+        attempts++;
+        if (attempts >= MAX_ATTEMPTS) {
+            plugin.getLogger().severe("Pending UOP action discarded after " + attempts + " failed attempts for "
+                    + player.getName() + " (" + action.get("type") + "): " + reason);
+            return;
+        }
+        action.put("attempts", attempts);
+        remaining.add(action);
+        plugin.getLogger().warning("Pending UOP action retained for " + player.getName() + " ("
+                + attempts + "/" + MAX_ATTEMPTS + "): " + reason);
     }
 
     private boolean applyOne(Player player, Map<String, Object> action) {

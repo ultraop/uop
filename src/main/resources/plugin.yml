@@ -23,3 +23,19 @@ permissions:
   uop.protect: { default: op }
   uop.permission: { default: op }
   uop.admin: { default: op }
+  uop.freeze.exempt: { default: false }
+  uop.*:
+    default: op
+    children:
+      uop.armor: true
+      uop.checkpoint: true
+      uop.damage: true
+      uop.enchant: true
+      uop.freeze: true
+      uop.immortal: true
+      uop.team: true
+      uop.inv: true
+      uop.name: true
+      uop.protect: true
+      uop.permission: true
+      uop.admin: true
