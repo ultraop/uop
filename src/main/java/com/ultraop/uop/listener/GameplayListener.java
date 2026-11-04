@@ -59,10 +59,7 @@ public final class GameplayListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        if (event instanceof PlayerTeleportEvent teleport
-                && (teleport.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN
-                || teleport.getCause() == PlayerTeleportEvent.TeleportCause.COMMAND)) return;
-        if (!freeze.frozen(player) || event.getTo() == null) return;
+         if (!freeze.frozen(player) || event.getTo() == null) return;
         Location from = event.getFrom();
         Location to = event.getTo();
         boolean moved = from.getWorld() != to.getWorld()
@@ -79,6 +76,15 @@ public final class GameplayListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onTeleport(PlayerTeleportEvent event) {
+        if (freeze.frozen(event.getPlayer())
+                && event.getCause() != PlayerTeleportEvent.TeleportCause.PLUGIN
+                && event.getCause() != PlayerTeleportEvent.TeleportCause.COMMAND) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player victim)) return;
         Player attacker = null;
@@ -86,7 +92,8 @@ public final class GameplayListener implements Listener {
             if (byEntity.getDamager() instanceof Player player) attacker = player;
             else if (byEntity.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player player) attacker = player;
         }
-        if (freeze.full(victim) || (attacker != null && freeze.frozen(attacker))) {
+        if (freeze.full(victim) || (attacker != null && freeze.frozen(attacker))
+                || damage.friendlyFireDenied(attacker, victim)) {
             event.setCancelled(true);
             return;
         }
@@ -102,7 +109,8 @@ public final class GameplayListener implements Listener {
     public void onDrop(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
         if (freeze.frozen(player) || profiles.locked(player, "drop")
-                || profiles.locked(player, "inventory") || profiles.locked(player, "armor")) {
+                || profiles.locked(player, "inventory")
+                || (profiles.locked(player, "armor") && isArmor(event.getItemDrop().getItemStack()))) {
             event.setCancelled(true);
         }
     }
@@ -159,10 +167,14 @@ public final class GameplayListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
+        boolean rightClick = event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR
+                || event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK;
+        if (profiles.locked(player, "armor") && rightClick && isArmor(event.getItem())) {
+            event.setCancelled(true);
+            return;
+        }
         if (!freeze.frozen(player)) return;
-        boolean armorEquip = !freeze.full(player) && isArmor(event.getItem())
-                && (event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR
-                || event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK);
+        boolean armorEquip = !freeze.full(player) && isArmor(event.getItem()) && rightClick;
         if (!armorEquip) event.setCancelled(true);
     }
 
@@ -213,7 +225,9 @@ public final class GameplayListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        if (profiles.locked(player, "armor") && event.getRawSlots().stream().anyMatch(slot -> slot >= 5 && slot <= 8)) {
+        if (profiles.locked(player, "armor") && event.getRawSlots().stream().anyMatch(rawSlot ->
+                event.getView().getInventory(rawSlot).equals(player.getInventory())
+                        && event.getView().getSlotType(rawSlot) == org.bukkit.event.inventory.InventoryType.SlotType.ARMOR)) {
             event.setCancelled(true);
         }
     }
