@@ -62,8 +62,8 @@ class CoreValidationTest {
         assertThrows(IllegalArgumentException.class, () -> TargetExpressionParser.split("@a[distance=..10"));
         assertThrows(IllegalArgumentException.class, () -> TargetExpressionParser.split("@a]"));
         assertThrows(IllegalArgumentException.class, () -> TargetExpressionParser.split("@a[[limit=2]]"));
-        assertEquals(List.of("@a[nbt={Inventory:[{id:\\"minecraft:stone\\"}]}]", "Red"),
-                TargetExpressionParser.split("@a[nbt={Inventory:[{id:\\"minecraft:stone\\"}]}],★Red"));
+        assertEquals(List.of("@a[nbt={Inventory:[{id:minecraft:stone}]}]", "Red"),
+                TargetExpressionParser.split("@a[nbt={Inventory:[{id:minecraft:stone}]}],★Red"));
         assertEquals(List.of("Red", "Blue"), TargetExpressionParser.split("★Red,★Blue"));
     }
 
