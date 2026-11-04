@@ -40,6 +40,7 @@ public final class CheckpointService {
         String checkpoint = key(name);
         if (players.isEmpty()) throw new IllegalArgumentException("No online players were selected.");
         String root = "checkpoints." + checkpoint;
+        if (store.data().contains(root)) store.createBackup("checkpoint-overwrite");
         // A repeated save replaces the whole roster; old players must not leak into the new snapshot.
         store.data().set(root + ".players", null);
         store.data().set(root + ".return", null);
