@@ -90,6 +90,21 @@ class CoreValidationTest {
     }
 
     @Test
+    void targetParserKeepsBracesAndNestedNbtArraysTogether() {
+        String selector = "@a[scores={a=1,b=2},nbt={Inventory:[{id:\"minecraft:diamond\",Count:1b}]}]";
+        assertEquals(List.of(selector, "★TeamA", "★TeamB"),
+                TargetExpressionParser.split(selector + ",★TeamA,★TeamB"));
+        assertEquals("TeamA", TargetResolver.clean("★TeamA"));
+        assertEquals("TeamB", TargetResolver.clean("★TeamB"));
+    }
+
+    @Test
+    void targetParserPreservesCommasInsideQuotedValues() {
+        assertEquals(List.of("@a[nbt={CustomName:'{\\\"text\\\":\\\"A,B\\\"}'}]", "UltraOP"),
+                TargetExpressionParser.split("@a[nbt={CustomName:'{\\\"text\\\":\\\"A,B\\\"}'}],UltraOP"));
+    }
+
+    @Test
     void inventorySlotAndAmountBoundsAreEnforced() {
         assertEquals(40, InventoryService.validateSlot(40));
         assertThrows(IllegalArgumentException.class, () -> InventoryService.validateSlot(-1));
