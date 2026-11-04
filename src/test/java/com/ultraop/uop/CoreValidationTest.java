@@ -1,7 +1,7 @@
 package com.ultraop.uop;
 
 import com.ultraop.uop.service.ArmorKitService;
-import com.ultraop.uop.service.InventoryService;
+import com.ultraop.uop.service.InventoryBounds;
 import com.ultraop.uop.target.TargetResolver;
 import com.ultraop.uop.target.TargetExpressionParser;
 import com.ultraop.uop.team.TeamService;
