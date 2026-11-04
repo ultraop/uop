@@ -5,6 +5,10 @@ history:
   max-snapshots: 600
   max-backups: 20
 
+pending:
+  expiry-days: 30
+  max-actions-per-player: 50
+
 teams:
   friendly-fire-default: true
 
