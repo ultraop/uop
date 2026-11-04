@@ -296,6 +296,13 @@ public final class InventoryService {
         }
     }
 
+    /** Clear transient sampler state when persistent UOP data is administratively reset. */
+    public void resetRuntimeState() {
+        recording.clear();
+        lastFingerprints.clear();
+        persistencePending = false;
+    }
+
     public List<String> recordingNames() {
         return recording.stream().sorted().toList();
     }

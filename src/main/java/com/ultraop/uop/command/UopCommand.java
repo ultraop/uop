@@ -1109,11 +1109,17 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             hint(sender, "Type all to reset UOP persistent state", "/uop reset all");
             return;
         }
+        // Stop transient recording and restore online scoreboard state before metadata is deleted.
+        plugin.inventory().resetRuntimeState();
+        plugin.names().resetRuntimeState();
         for (String key : new ArrayList<>(plugin.store().data().getKeys(false))) {
             if (!key.equals("schema-version")) plugin.store().data().set(key, null);
         }
         plugin.store().save();
-        msg(sender, "&aUOP state reset. Server-managed player inventories were not edited.");
+        plugin.protection().refreshCache();
+        plugin.names().refreshTagSnapshot();
+        plugin.names().refreshAll();
+        msg(sender, "&aUOP state reset. Active recording stopped; online UOP name and scoreboard effects were cleared. Server-managed player inventories were not edited.");
     }
 
     private int integer(String value, int min, int max, String label) {
