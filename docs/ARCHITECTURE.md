@@ -62,13 +62,13 @@ Capture an independent snapshot per selected online player: identity metadata, w
 3. Victim incoming rule.
 4. Global multiplier.
 
-Attacker and victim can each be a Player or Team target. Team-vs-Team rules match current Team membership. Friendly-fire OFF blocks same-Team damage before multiplier evaluation. Zero damage must not cancel unrelated mechanics such as Wind Charge propulsion.
+Attacker and victim can each be a Player or Team target. Team-vs-Team rules match current Team membership. Friendly-fire OFF cancels same-Team player damage (including player projectiles and tameable attacks) before multiplier evaluation. Zero damage must not cancel unrelated mechanics such as Wind Charge propulsion.
 
 ## Armor and direct kit
 Saved loadouts contain armor, inventory/hotbar, offhand and included weapons/tools. Armor replacement must not drop old armor or silently lose items. `/uop armor give direct` generates a full kit: helmet, chestplate, leggings, boots, sword, pickaxe, bread and steak. Materials: iron, gold, diamond, netherite, mixed (retain other legacy materials only if explicitly required). Enchantment preset levels 1–5 are centrally defined: level 1 Mending only; levels 2–4 add progressively defined compatible enchantments; level 5 is the maximum compatible preset. No conflicting enchantments. Food quantities are not inferred; they need an explicit agreed mapping.
 
 ## Freeze and immortal
-Normal freeze blocks movement and defined external actions while allowing intended inventory preparation. Full freeze additionally blocks rotation and inventory/hand changes; ESC remains available. Team freeze affects current members and is stored for offline members to apply on join. OP/staff exemptions remain configurable.
+Normal freeze blocks movement and defined external actions while allowing intended inventory preparation. Full freeze additionally blocks rotation and inventory/hand changes; ESC remains available. Team freeze affects current members and is stored for offline members to apply on join. OP/staff exemptions remain configurable. Freeze, immortal and inventory-lock state is cached for movement/damage event hot paths; async login/chat readers use immutable snapshots rather than mutable YAML.
 
 Immortal prevents lethal damage and maintains at least 1 HP. It applies to Player or Team and persists for reconnects. Void, `/kill`, plugin damage and direct health-setting require explicit handling and tests before claiming universal immunity.
 
@@ -76,7 +76,9 @@ Immortal prevents lethal damage and maintains at least 1 HP. It applies to Playe
 Inventory belongs to each player. Team targets mean apply per member, not a pooled inventory. Support view/edit/give/take/clear, backup/restore/history, inventory/armor/drop locks, Player swap and Team-to-Team swap. Team swap initially requires equal roster sizes, deterministic member ordering and rollback snapshots; otherwise abort all changes.
 
 ## Storage and migration
-Use versioned YAML initially with atomic replacement and backups. The main `uop.yml` stores `schema-version`, `teams`, `players`, `armor-loadouts`, `checkpoints`, damage rules, inventory backups, name tags, protection, permissions and the active recording roster. Inventory history snapshots are stored separately under `history/<player>.yml`, cached in memory, serialized on the server thread and written by a dedicated single-thread writer using temporary files and atomic replacement. Existing in-YAML histories migrate lazily when that player's history is first accessed.
+Use versioned YAML initially with atomic replacement and backups. Before destructive resets, create a ZIP archive of the plugin data folder (including config and separate history files); keep the 10 newest backups. The main `uop.yml` stores `schema-version`, `teams`, `players`, `armor-loadouts`, `checkpoints`, damage rules, inventory backups, name tags, protection, permissions and the active recording roster. Inventory history snapshots are stored separately under `history/<player>.yml`, cached in memory, serialized on the server thread and written by a dedicated single-thread writer using temporary files and atomic replacement. Existing in-YAML histories migrate lazily when that player's history is first accessed.
+
+UUID protection is the default to avoid dynamic-IP lockouts; explicit IP/both modes are available. Offline-mode servers log a warning because username-derived UUIDs are not authenticated.
 
 Legacy migration is opt-in: detect old `plugins/UOP-Recording-Tools/data/data.yml`, back it up first, migrate only reliably mappable data, retain UUID history, create name aliases only where reliable, and report ambiguous/unsupported data. Never delete legacy data.
 
