@@ -79,6 +79,7 @@ public final class PermissionService {
     }
 
     public void resetAll() {
+        store.createBackup("permission-reset");
         var players = store.data().getConfigurationSection("players");
         if (players != null) {
             for (String player : players.getKeys(false)) store.data().set("players." + player + ".permissions", null);
