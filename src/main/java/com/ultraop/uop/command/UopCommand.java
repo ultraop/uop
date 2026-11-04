@@ -1293,7 +1293,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (a.length == 2) return matching(List.of("grant", "revoke", "list", "check", "reset"), a[1]);
         String action = a[1].toLowerCase(Locale.ROOT);
         if (a.length == 3 && List.of("grant", "revoke", "list", "check", "reset").contains(action)) {
-            if (a[1].equalsIgnoreCase("reset")) {
+            if (action.equals("reset")) {
                 List<String> options = new ArrayList<>();
                 if ("all".startsWith(a[2].toLowerCase(Locale.ROOT))) options.add("all");
                 options.addAll(targets.suggestions(a[2]));
@@ -1309,10 +1309,15 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (a.length == 4 && action.equals("check")) return matching(List.of("uop.*", "uop.armor", "uop.checkpoint",
                 "uop.damage", "uop.enchant", "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name",
                 "uop.protect", "uop.permission", "uop.admin"), a[3]);
-        if (a.length == 4 && action.equals("reset") && a[2].equalsIgnoreCase("all")) return matching(List.of("confirm"), a[3]);
+        if (a.length == 4 && action.equals("reset") && a[2].equalsIgnoreCase("all")) {
+            return matching(List.of("confirm"), a[3]);
+        }
         if (a.length == 4 && action.equals("reset")) return matching(List.of("all", "uop.*", "uop.armor",
                 "uop.checkpoint", "uop.damage", "uop.enchant", "uop.freeze", "uop.immortal", "uop.team",
                 "uop.inv", "uop.name", "uop.protect", "uop.permission", "uop.admin"), a[3]);
+        if (a.length == 5 && action.equals("reset") && a[3].equalsIgnoreCase("all")) {
+            return matching(List.of("confirm"), a[4]);
+        }
         return List.of();
     }
 
