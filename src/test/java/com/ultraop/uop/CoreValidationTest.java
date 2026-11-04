@@ -2,6 +2,7 @@ package com.ultraop.uop;
 
 import com.ultraop.uop.service.ArmorKitService;
 import com.ultraop.uop.service.InventoryBounds;
+import com.ultraop.uop.service.PermissionRuleSet;
 import com.ultraop.uop.target.TargetResolver;
 import com.ultraop.uop.target.TargetExpressionParser;
 import com.ultraop.uop.team.TeamService;
@@ -89,12 +90,38 @@ class CoreValidationTest {
                 () -> kits.validateWeaponArgs("enchanted 11", List.of("sword")));
     }
 
+
+    @Test
+    void permissionDenyOverridesInheritedWildcardGrant() {
+        assertEquals(Boolean.FALSE,
+                PermissionRuleSet.explicitDecision(List.of("uop.*", "!uop.armor"), "uop.armor"));
+    }
+
+    @Test
+    void specificPermissionGrantOverridesBroaderWildcardDeny() {
+        assertEquals(Boolean.TRUE,
+                PermissionRuleSet.explicitDecision(List.of("!*", "uop.armor"), "uop.armor"));
+        assertEquals(Boolean.FALSE,
+                PermissionRuleSet.explicitDecision(List.of("!*", "uop.armor"), "uop.freeze"));
+    }
+
+    @Test
+    void permissionDenyWinsAtEqualSpecificity() {
+        assertEquals(Boolean.FALSE,
+                PermissionRuleSet.explicitDecision(List.of("uop.armor", "!uop.armor"), "uop.armor"));
+    }
+
+    @Test
+    void unmatchedPermissionUsesBukkitFallback() {
+        assertEquals(null, PermissionRuleSet.explicitDecision(List.of("uop.armor"), "uop.freeze"));
+    }
+
     @Test
     void inventorySlotAndAmountBoundsAreEnforced() {
-        assertEquals(40, InventoryService.validateSlot(40));
-        assertThrows(IllegalArgumentException.class, () -> InventoryService.validateSlot(-1));
-        assertThrows(IllegalArgumentException.class, () -> InventoryService.validateSlot(41));
-        assertEquals(99, InventoryService.validateAmount(99));
-        assertThrows(IllegalArgumentException.class, () -> InventoryService.validateAmount(0));
+        assertEquals(40, InventoryBounds.validateSlot(40));
+        assertThrows(IllegalArgumentException.class, () -> InventoryBounds.validateSlot(-1));
+        assertThrows(IllegalArgumentException.class, () -> InventoryBounds.validateSlot(41));
+        assertEquals(99, InventoryBounds.validateAmount(99));
+        assertThrows(IllegalArgumentException.class, () -> InventoryBounds.validateAmount(0));
     }
 }
