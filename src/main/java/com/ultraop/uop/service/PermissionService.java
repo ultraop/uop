@@ -28,8 +28,9 @@ public final class PermissionService {
         for (String raw : nodes) {
             String normalized = normalize(raw);
             if (normalized.equals("all")) normalized = "*";
-            if (!current.contains(normalized)) current.add(normalized);
-            denied.removeIf(value -> normalizeStored(value).equals(normalized));
+            String granted = normalized;
+            if (!current.contains(granted)) current.add(granted);
+            denied.removeIf(value -> normalizeStored(value).equals(granted));
         }
         store.data().set(path(playerName), current);
         store.data().set(deniedPath(playerName), denied.isEmpty() ? null : denied);
