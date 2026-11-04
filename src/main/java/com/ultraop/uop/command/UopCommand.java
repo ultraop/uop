@@ -447,6 +447,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 Player player = Bukkit.getPlayerExact(name);
                 if (mode.equals("saved")) {
                     if (player != null && player.isOnline()) {
+                        inventory.backup(player, "auto-pre-loadout-" + System.nanoTime());
                         if (loadouts.give(a[4], player)) success++;
                         else failed.add(name);
                     } else {
@@ -458,6 +459,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     if (chosen == null) {
                         failed.add(name);
                     } else if (player != null && player.isOnline()) {
+                        inventory.backup(player, "auto-pre-loadout-" + System.nanoTime());
                         if (loadouts.give(chosen, player)) success++;
                         else failed.add(name);
                     } else {
