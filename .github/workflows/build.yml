@@ -4,6 +4,13 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: uop-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,10 +32,12 @@ jobs:
           jars=(build/libs/*.jar)
           test "${#jars[@]}" -eq 1
           jar="${jars[0]}"
+          unzip -t "$jar"
           unzip -l "$jar" | grep -Fq 'plugin.yml'
           unzip -l "$jar" | grep -Fq 'com/ultraop/uop/UopPlugin.class'
           unzip -p "$jar" plugin.yml | grep -Fq "api-version: '1.21.11'"
           unzip -p "$jar" plugin.yml | grep -Fq 'main: com.ultraop.uop.UopPlugin'
+          unzip -p "$jar" plugin.yml | grep -Fq 'name: UOP'
       - name: Generate SHA-256 checksum
         shell: bash
         run: sha256sum build/libs/*.jar > build/libs/SHA256SUMS.txt
