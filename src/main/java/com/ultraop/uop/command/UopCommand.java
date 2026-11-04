@@ -79,6 +79,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
 
     private void require(CommandSender sender, String permission) {
+        if (sender instanceof Player player && permissions.denied(player, permission)) {
+            throw new IllegalArgumentException("This UOP permission was explicitly revoked: " + permission);
+        }
         if (!admin(sender) && !(sender instanceof Player player
                 && (sender.hasPermission(permission) || permissions.has(player, permission)))) {
             throw new IllegalArgumentException("You do not have permission: " + permission);
@@ -1135,7 +1138,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             case "list" -> {
                 if (a.length != 3) throw new IllegalArgumentException("Usage: /uop permission list <target>");
                 List<String> selected = targets.resolveNames(sender, a[2]);
-                for (String player : selected) msg(sender, "&f" + player + " permissions: &e" + String.join(", ", permissions.list(player)));
+                for (String player : selected) {
+                    msg(sender, "&f" + player + " grants: &a" + String.join(", ", permissions.list(player)));
+                    msg(sender, "&f" + player + " explicit denies: &c" + String.join(", ", permissions.listDenied(player)));
+                }
             }
             case "check" -> {
                 if (a.length != 4) throw new IllegalArgumentException("Usage: /uop permission check <target> <permission>");
@@ -1362,10 +1368,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         return List.of();
     }
 
-    private boolean visibleRoot(CommandSender sender, String root) {
-        if (root.equals("help") || root.equals("version")) return true;
-        if (admin(sender)) return true;
-        String permission = switch (root) {
+    private String rootPermission(String root) {
+        return switch (root) {
             case "armor" -> "uop.armor";
             case "checkpoint" -> "uop.checkpoint";
             case "damage" -> "uop.damage";
@@ -1379,6 +1383,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             case "permission", "reload", "reset", "pending" -> "uop.admin";
             default -> null;
         };
+    }
+
+    private boolean visibleRoot(CommandSender sender, String root) {
+        String required = rootPermission(root);
+        if (sender instanceof Player player && required != null && permissions.denied(player, required)) return false;
+        if (root.equals("help") || root.equals("version")) return true;
+        if (admin(sender)) return true;
+        String permission = required;
         if (permission == null) return false;
         if (sender.hasPermission(permission)) return true;
         return sender instanceof Player player && permissions.has(player, permission);
