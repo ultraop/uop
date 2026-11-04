@@ -102,6 +102,7 @@ public final class UopPlugin extends JavaPlugin {
             if (!key.equals("schema-version")) store.data().set(key, null);
         }
         store.save();
+        if (profiles != null) profiles.clearRuntimeCache();
         if (names != null) names.refreshTagCache();
         if (protection != null) protection.refreshCache();
     }
@@ -111,6 +112,7 @@ public final class UopPlugin extends JavaPlugin {
         store.save();
         reloadConfig();
         store.reload();
+        profiles.clearRuntimeCache();
 
         teams.defaultFriendlyFire(getConfig().getBoolean("teams.friendly-fire-default", true));
         configureFreezeExemptions();
