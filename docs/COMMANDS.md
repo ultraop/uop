@@ -41,7 +41,7 @@ Each Player receives an independent snapshot. `tp` restores full snapshot and po
 /uop damage reset outgoing <target>
 /uop damage reset incoming <target>
 /uop damage reset pair <attacker_target> <victim_target>
-/uop damage reset all
+/uop damage reset all confirm
 /uop damage list
 ```
 Player/Team/selectors supported. Exact pair > outgoing > incoming > global. Friendly-fire OFF cancels same-Team player damage, including player-shot projectiles and player-owned tameable attacks.
@@ -103,7 +103,7 @@ Membership persists across disconnects and same-name reconnects. Team delete doe
 /uop inv lock <inventory|armor|drop> <target>
 /uop inv unlock <inventory|armor|drop> <target>
 ```
-Team actions are per-member. Team swap requires equal roster size and deterministic pairing; validate and snapshot all members before mutation. Inventory history stores the active recording roster in `uop.yml` and snapshots in separate per-player files under `history/`. Snapshot serialization happens on the server thread; atomic file writes run on a dedicated writer thread. Legacy history in `uop.yml` migrates lazily on first access. Sampling pauses while recorded players are offline and resumes after reconnect; recording state is reloaded after plugin/server restart. `/uop inv record stop <target>` also accepts offline Player/Team names. Inventory restore/back and saved loadout application create pre-change backups. Destructive reset/clear operations create ZIP archives in `backups/` before deleting data; the newest 10 archives are retained. Live crash-recovery and long-duration performance testing are still required.
+Team actions are per-member. Team swap requires equal roster size and deterministic pairing; validate and snapshot all members before mutation. Inventory `set`, `remove`, `clear`, `swap`, `restore`, and `back` create bounded automatic pre-change backups; checkpoint restoration also backs up the current inventory. Inventory history stores the active recording roster in `uop.yml` and snapshots in separate per-player files under `history/`. Snapshot serialization happens on the server thread; atomic file writes run on a dedicated writer thread. Legacy history in `uop.yml` migrates lazily on first access. Sampling pauses while recorded players are offline and resumes after reconnect; recording state is reloaded after plugin/server restart. `/uop inv record stop <target>` also accepts offline Player/Team names. Inventory restore/back and saved loadout application create pre-change backups. Destructive reset/clear operations create ZIP archives in `backups/` before deleting data; the newest 10 archives are retained. Live crash-recovery and long-duration performance testing are still required.
 
 ## Name / tags
 ```text
