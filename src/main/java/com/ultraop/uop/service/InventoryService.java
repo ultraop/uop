@@ -275,11 +275,14 @@ public final class InventoryService {
         player.updateInventory();
     }
 
-    public void remove(Player player, int slot) {
+    public boolean remove(Player player, int slot) {
         validateSlot(slot);
-        if (player.getInventory().getItem(slot) != null) automaticBackup(player, "before-remove");
+        ItemStack existing = player.getInventory().getItem(slot);
+        if (existing == null || existing.getType().isAir()) return false;
+        backupAutomatically(player, "before-remove");
         player.getInventory().setItem(slot, null);
         player.updateInventory();
+        return true;
     }
 
     public int give(Player player, Material material, int amount) {
@@ -496,15 +499,19 @@ public final class InventoryService {
         stopRecordNames(players.stream().map(Player::getName).toList());
     }
 
-    public void stopRecordNames(List<String> playerNames) {
+    public int stopRecordNames(List<String> playerNames) {
+        int stopped = 0;
         for (String name : playerNames) {
             String key = name.toLowerCase(Locale.ROOT);
-            recording.remove(key);
+            if (recording.remove(key)) stopped++;
             lastFingerprints.remove(key);
         }
-        persistRecordingState();
-        scheduleHistoryWrite();
-        saveStoreSafely("inventory recording stop");
+        if (stopped > 0) {
+            persistRecordingState();
+            scheduleHistoryWrite();
+            saveStoreSafely("inventory recording stop");
+        }
+        return stopped;
     }
 
     private void saveStoreSafely(String context) {
