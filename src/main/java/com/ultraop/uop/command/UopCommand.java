@@ -511,9 +511,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                         missing++;
                     }
                 }
-                msg(sender, "&a" + (a[1].equalsIgnoreCase("back") ? "Returned " : "Restored ")
-                        + restored + " online player(s)" + (queued > 0 ? "; queued for " + queued + " offline profile(s)." : "."));
-                if (missing > 0) msg(sender, "&eNo saved snapshot for " + missing + " target(s).");
+                if (restored > 0 || queued > 0) {
+                    msg(sender, "&a" + (a[1].equalsIgnoreCase("back") ? "Returned " : "Restored ")
+                            + restored + " online player(s)" + (queued > 0 ? "; queued for " + queued + " offline profile(s)." : "."));
+                }
+                if (missing > 0) msg(sender, "&eNo saved checkpoint/return position for " + missing + " target(s).");
+                if (restored == 0 && queued == 0 && missing == 0) {
+                    msg(sender, "&eNo selected player could be restored; no location or snapshot was changed.");
+                }
             }
             case "delete" -> {
                 if (a.length != 3) {
@@ -582,7 +587,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                         if (a.length != 5) throw new IllegalArgumentException("Usage: /uop damage reset pair <attacker_target> <victim_target>");
                         damage.resetPair(sender, a[3], a[4]);
                     }
-                    case "all" -> damage.resetAll();
+                    case "all" -> {
+                        if (a.length != 4 || !a[3].equalsIgnoreCase("confirm")) {
+                            hint(sender, "Confirm removal of all damage rules",
+                                    "/uop damage reset all confirm");
+                            return;
+                        }
+                        damage.resetAll();
+                    }
                     default -> throw new IllegalArgumentException("Unknown damage reset scope.");
                 }
                 msg(sender, "&aDamage rule reset.");
@@ -670,10 +682,16 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "add" -> {
                 if (a.length < 4) throw new IllegalArgumentException("Usage: /uop team add <team_name> <player|selector>...");
-                List<String> names = new ArrayList<>();
-                for (int i = 3; i < a.length; i++) names.addAll(targets.resolveNames(sender, a[i]));
+                java.util.LinkedHashSet<String> resolved = new java.util.LinkedHashSet<>();
+                for (int i = 3; i < a.length; i++) resolved.addAll(targets.resolveNames(sender, a[i]));
+                List<String> names = new ArrayList<>(resolved);
+                teams.requireTeam(TargetResolver.clean(a[2]));
+                int newMembers = (int) names.stream()
+                        .filter(name -> !teams.contains(TargetResolver.clean(a[2]), name)).count();
                 teams.addAll(TargetResolver.clean(a[2]), names);
-                msg(sender, "&aAdded " + names.size() + " member(s) to &f" + a[2]);
+                msg(sender, "&aAdded " + newMembers + " new member(s) to &f" + a[2] + ".");
+                if (newMembers < names.size()) msg(sender, "&7" + (names.size() - newMembers)
+                        + " selected player(s) were already members.");
             }
             case "remove" -> {
                 if (a.length != 4) throw new IllegalArgumentException("Usage: /uop team remove <team_name> <player>");
@@ -815,19 +833,28 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 if (material == null || material.isAir()) throw new IllegalArgumentException("Unknown item: " + a[3]);
                 int amount = a.length == 5 ? integer(a[4], 1, 99, "Amount") : 1;
                 List<Player> selected = targets.resolve(sender, a[2]);
-                int affected = 0, leftovers = 0;
+                int affected = 0, leftovers = 0, inserted = 0;
                 for (Player player : selected) {
                     if (a[1].equalsIgnoreCase("give")) {
-                        leftovers += inventory.give(player, material, amount);
-                        affected++;
+                        int remaining = inventory.give(player, material, amount);
+                        leftovers += remaining;
+                        int received = amount - remaining;
+                        if (received > 0) affected++;
+                        inserted += received;
                     } else {
                         affected += inventory.take(player, material, amount);
                     }
                 }
                 if (a[1].equalsIgnoreCase("give")) {
-                    msg(sender, "&aItem given to " + affected + " player(s). Leftover items because of full inventories: " + leftovers + ".");
+                    if (inserted == 0) {
+                        msg(sender, "&eNo items were inserted; selected inventories may be full.");
+                    } else {
+                        msg(sender, "&aInserted " + inserted + " item(s) into " + affected
+                                + " player inventory(s). Left over due to capacity: " + leftovers + ".");
+                    }
                 } else {
-                    msg(sender, "&aRemoved " + affected + " item(s) in total.");
+                    if (affected == 0) msg(sender, "&eNo matching items were found; no inventory items were removed.");
+                    else msg(sender, "&aRemoved " + affected + " item(s) in total.");
                 }
             }
             case "clear" -> {
@@ -874,9 +901,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 List<Player> selected = targets.resolve(sender, a[2]);
-                int restored = 0;
-                for (Player player : selected) if (inventory.restore(player, a[3])) restored++;
-                msg(sender, "&aRestored backup for " + restored + " player(s).");
+                int restored = 0, missing = 0;
+                for (Player player : selected) {
+                    if (inventory.restore(player, a[3])) restored++;
+                    else missing++;
+                }
+                if (restored > 0) msg(sender, "&aRestored backup for " + restored + " player(s).");
+                if (missing > 0) msg(sender, "&eBackup '" + a[3] + "' was missing or invalid for "
+                        + missing + " player(s); their inventory was not changed.");
             }
             case "backups" -> {
                 if (a.length != 3) {
@@ -1521,7 +1553,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (a.length == 3 && List.of("set", "pair").contains(a[1])) return targets.suggestions(a[2]);
         if (a.length == 4 && List.of("set", "pair").contains(a[1])) return targets.suggestions(a[3]);
         if (a.length == 5 && List.of("set", "pair").contains(a[1])) return matching(List.of("0", "0.25", "0.5", "1", "1.5", "2", "5", "10"), a[4]);
-        if (a.length == 3 && a[1].equals("reset")) return matching(List.of("global", "outgoing", "incoming", "pair", "all"), a[2]);
+        if (a.length == 3 && a[1].equalsIgnoreCase("reset")) return matching(List.of("global", "outgoing", "incoming", "pair", "all"), a[2]);
+        if (a.length == 4 && a[1].equalsIgnoreCase("reset") && a[2].equalsIgnoreCase("all"))
+            return matching(List.of("confirm"), a[3]);
         if (a.length == 4 && a[1].equals("reset") && List.of("outgoing", "incoming").contains(a[2])) return targets.suggestions(a[3]);
         if (a.length == 4 && a[1].equals("reset") && a[2].equals("pair")) return targets.suggestions(a[3]);
         if (a.length == 5 && a[1].equals("reset") && a[2].equals("pair")) return targets.suggestions(a[4]);
