@@ -71,7 +71,7 @@ public final class UopPlugin extends JavaPlugin {
         kits = new ArmorKitService();
         inventory = new InventoryService(this, store, teams);
         loadouts = new ArmorLoadoutService(store, inventory);
-        checkpoints = new CheckpointService(store);
+        checkpoints = new CheckpointService(store, inventory);
         damage = new DamageService(store, teams, targets);
         enchants = new EnchantService();
         states = new FreezeImmortalService(profiles);
