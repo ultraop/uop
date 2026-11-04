@@ -1386,6 +1386,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
 
     private List<String> protectTabs(String[] a) {
         if (a.length == 2) return matching(List.of("add", "remove", "list", "reset"), a[1]);
+        if (a.length == 3 && a[1].equalsIgnoreCase("reset")) return matching(List.of("confirm"), a[2]);
         String action = a[1].toLowerCase(Locale.ROOT);
         if (a.length == 3 && List.of("add", "remove").contains(action)) return targets.suggestions(a[2]);
         if (a.length == 4 && action.equals("add")) return matching(List.of("uuid", "ip", "both"), a[3]);
@@ -1404,6 +1405,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             return targets.suggestions(a[2]);
         }
         String action = a[1].toLowerCase(Locale.ROOT);
+        if (a.length == 4 && action.equals("reset") && a[2].equalsIgnoreCase("all")) {
+            return matching(List.of("confirm"), a[3]);
+        }
         if (a.length >= 4 && List.of("grant", "revoke").contains(action)) {
             return matching(List.of("uop.*", "uop.armor", "uop.checkpoint", "uop.damage", "uop.enchant",
                     "uop.freeze", "uop.immortal", "uop.team", "uop.inv", "uop.name", "uop.protect",
@@ -1420,7 +1424,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
 
     private List<String> teamTabs(String[] a) {
         if (a.length == 2) return matching(List.of("create", "delete", "list", "info", "add", "remove", "removeall", "tp", "settings"), a[1]);
-        if (a.length == 3 && List.of("delete", "info", "removeall").contains(a[1])) return teamNames(a[2]);
+        if (a.length == 3 && List.of("delete", "info", "removeall").stream().anyMatch(v -> v.equalsIgnoreCase(a[1]))) return teamNames(a[2]);
         if (a.length == 3 && a[1].equalsIgnoreCase("add")) return teamNames(a[2]);
         if (a.length >= 4 && a[1].equalsIgnoreCase("add")) return targets.suggestions(a[a.length - 1]);
         if (a.length == 4 && a[1].equalsIgnoreCase("remove")) return memberNames(a[2], a[3]);
@@ -1488,7 +1492,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         if (a.length == 3 && List.of("tp", "delete").contains(a[1].toLowerCase(Locale.ROOT))) return checkpointNames(a[2]);
         if (a.length == 3 && a[1].equalsIgnoreCase("back")) return targets.suggestions(a[2]);
         if (a.length == 4 && List.of("tp", "save").contains(a[1].toLowerCase(Locale.ROOT))) return targets.suggestions(a[3]);
-        if (a.length == 3 && a[1].equals("clear")) return matching(List.of("all"), a[2]);
+        if (a.length == 3 && a[1].equalsIgnoreCase("clear")) return matching(List.of("all"), a[2]);
+        if (a.length == 4 && a[1].equalsIgnoreCase("clear") && a[2].equalsIgnoreCase("all")) return matching(List.of("confirm"), a[3]);
         return List.of();
     }
 
