@@ -393,7 +393,7 @@ public final class InventoryService {
                 selected = entry;
             }
         }
-        if (selected == null) selected = history.get(0);
+        if (selected == null) return false;
         Object raw = selected.get("snapshot");
         if (!(raw instanceof Map<?, ?> snapshot)) return false;
         backup(player, "auto-pre-back-" + System.currentTimeMillis());
