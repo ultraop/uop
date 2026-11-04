@@ -172,8 +172,16 @@ public final class PendingActionService {
         int applied = 0;
         boolean changed = false;
         long now = System.currentTimeMillis();
+        long expiryDays = Math.max(1L, plugin.getConfig().getLong("pending.expiry-days", 30L));
         for (Map<String, Object> action : source) {
             Object expiry = action.get("expires-at");
+            if (!(expiry instanceof Number number) || number.longValue() <= 0) {
+                // Migrate pre-expiry pending actions safely: retain them once with a bounded lifetime.
+                action.put("created-at", now);
+                action.put("expires-at", now + expiryDays * 86_400_000L);
+                changed = true;
+                expiry = action.get("expires-at");
+            }
             if (expiry instanceof Number number && number.longValue() > 0 && number.longValue() <= now) {
                 changed = true;
                 plugin.getLogger().warning("Expired pending UOP action discarded for " + player.getName()
