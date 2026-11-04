@@ -35,7 +35,10 @@ public final class TargetExpressionParser {
                 continue;
             }
             switch (current) {
-                case '[' -> squareDepth++;
+                case '[' -> {
+                    if (squareDepth > 0 && curlyDepth == 0) throw new IllegalArgumentException("Nested selector brackets are not supported outside SNBT lists.");
+                    squareDepth++;
+                }
                 case ']' -> {
                     if (squareDepth == 0) throw new IllegalArgumentException("Selector has an unexpected closing bracket.");
                     squareDepth--;
