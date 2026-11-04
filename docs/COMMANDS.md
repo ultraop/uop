@@ -142,7 +142,7 @@ When no mode is supplied, UUID mode is used by default to avoid lockouts after a
 /uop reset all confirm
 /uop version
 ```
-Permission administration is OP/console-only by default. Explicit UOP denies override broader UOP wildcard grants and Bukkit/LuckPerms grants for UOP command authorization. The list command displays grants and explicit denies separately. `revoke <target> <node>` adds an explicit deny; `reset <target> <node>` removes the grant and matching deny. Reset-all commands require a second `confirm` argument and create a data backup first.
+Permission administration requires `uop.permission` (default: op); console and operators retain access. Admins can explicitly grant this node to trusted staff. Explicit UOP denies override broader UOP wildcard grants and Bukkit/LuckPerms grants for UOP command authorization. The list command displays grants and explicit denies separately. The `uop.*` Bukkit parent permission grants all declared UOP command permissions. `revoke <target> <node>` adds an explicit deny; `reset <target> <node>` removes the grant and matching deny. Reset-all commands require a second `confirm` argument and create a data backup first.
 
 ## Pending offline actions
 ```text
