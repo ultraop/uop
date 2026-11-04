@@ -102,7 +102,8 @@ public final class GameplayListener implements Listener {
     public void onDrop(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
         if (freeze.frozen(player) || profiles.locked(player, "drop")
-                || profiles.locked(player, "inventory") || profiles.locked(player, "armor")) {
+                || profiles.locked(player, "inventory")
+                || profiles.locked(player, "armor") && isArmor(event.getItemDrop().getItemStack())) {
             event.setCancelled(true);
         }
     }
@@ -159,8 +160,8 @@ public final class GameplayListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        if (!freeze.frozen(player)) return;
-        boolean armorEquip = !freeze.full(player) && isArmor(event.getItem())
+        if (!freeze.frozen(player) && !profiles.locked(player, "armor")) return;
+        boolean armorEquip = !freeze.full(player) && !profiles.locked(player, "armor") && isArmor(event.getItem())
                 && (event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR
                 || event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK);
         if (!armorEquip) event.setCancelled(true);
@@ -213,7 +214,9 @@ public final class GameplayListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        if (profiles.locked(player, "armor") && event.getRawSlots().stream().anyMatch(slot -> slot >= 5 && slot <= 8)) {
+        if (profiles.locked(player, "armor") && event.getRawSlots().stream()
+                .anyMatch(rawSlot -> event.getView().getSlotType(rawSlot)
+                        == org.bukkit.event.inventory.InventoryType.SlotType.ARMOR)) {
             event.setCancelled(true);
         }
     }
