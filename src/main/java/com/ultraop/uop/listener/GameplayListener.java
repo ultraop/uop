@@ -5,6 +5,7 @@ import com.ultraop.uop.service.DamageService;
 import com.ultraop.uop.service.FreezeImmortalService;
 import com.ultraop.uop.service.PendingActionService;
 import org.bukkit.Location;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -40,9 +41,11 @@ public final class GameplayListener implements Listener {
     private final FreezeImmortalService freeze;
     private final DamageService damage;
     private final PendingActionService pending;
+    private final JavaPlugin plugin;
 
-    public GameplayListener(PlayerProfileService profiles, FreezeImmortalService freeze, DamageService damage,
+    public GameplayListener(JavaPlugin plugin, PlayerProfileService profiles, FreezeImmortalService freeze, DamageService damage,
                             PendingActionService pending) {
+        this.plugin = plugin;
         this.profiles = profiles;
         this.freeze = freeze;
         this.damage = damage;
@@ -52,8 +55,12 @@ public final class GameplayListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         profiles.observe(event.getPlayer());
-        int applied = pending.applyOnJoin(event.getPlayer());
-        if (applied > 0) event.getPlayer().sendMessage("§7[§6UOP§7] §aRestored " + applied + " pending Team action(s).");
+        Player player = event.getPlayer();
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (!player.isOnline()) return;
+            int applied = pending.applyOnJoin(player);
+            if (applied > 0) player.sendMessage("§7[§6UOP§7] §aRestored " + applied + " pending Team action(s).");
+        });
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
