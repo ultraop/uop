@@ -146,7 +146,7 @@ public final class PendingActionService {
         List<String> result = new ArrayList<>();
         int index = 1;
         for (Map<?, ?> action : store.data().getMapList(path(playerName))) {
-            String type = String.valueOf(action.getOrDefault("type", "unknown"));
+            String type = String.valueOf(action.containsKey("type") ? action.get("type") : "unknown");
             long expires = action.get("expires-at") instanceof Number n ? n.longValue() : 0L;
             result.add("#" + index++ + " " + type + (expires > 0 ? " (expires " + expires + ")" : ""));
         }
