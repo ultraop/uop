@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class CheckpointService {
+    public static final String BACK_CHECKPOINT = "_uop_back";
     private final UopStore store;
 
     public CheckpointService(UopStore store) {
@@ -36,13 +37,31 @@ public final class CheckpointService {
     }
 
     public int save(String name, List<Player> players) {
+        return save(name, players, true);
+    }
+
+    /** Save the pre-teleport state without removing other players' back snapshots. */
+    public void saveBack(Player player) {
+        save(BACK_CHECKPOINT, List.of(player), false);
+    }
+
+    public int restoreBack(List<Player> players) {
+        return restore(BACK_CHECKPOINT, players);
+    }
+
+    public boolean hasBackSnapshot(String playerName) {
+        return hasSnapshot(BACK_CHECKPOINT, playerName);
+    }
+
+    private int save(String name, List<Player> players, boolean replaceExisting) {
         String checkpoint = key(name);
         if (players.isEmpty()) throw new IllegalArgumentException("No online players were selected.");
         String root = "checkpoints." + checkpoint;
+        if (replaceExisting) store.data().set(root + ".players", null);
         store.data().set(root + ".display-name", name);
         int saved = 0;
         for (Player player : players) {
-            String base = root + ".players." + player.getName().toLowerCase();
+            String base = root + ".players." + player.getName().toLowerCase(java.util.Locale.ROOT);
             Location location = player.getLocation();
             store.data().set(base + ".world", location.getWorld().getUID().toString());
             store.data().set(base + ".world-name", location.getWorld().getName());
@@ -96,12 +115,19 @@ public final class CheckpointService {
         ConfigurationSection section = store.data().getConfigurationSection("checkpoints");
         if (section == null) return List.of();
         List<String> names = new ArrayList<>();
-        for (String child : section.getKeys(false)) names.add(section.getString(child + ".display-name", child));
+        for (String child : section.getKeys(false)) {
+            if (child.equalsIgnoreCase(BACK_CHECKPOINT)) continue;
+            names.add(section.getString(child + ".display-name", child));
+        }
+        names.sort(String.CASE_INSENSITIVE_ORDER);
         return names;
     }
 
     public boolean delete(String name) {
         String checkpoint = key(name);
+        if (checkpoint.equalsIgnoreCase(BACK_CHECKPOINT)) {
+            throw new IllegalArgumentException("The internal back snapshot cannot be deleted directly.");
+        }
         if (!store.data().contains("checkpoints." + checkpoint)) return false;
         store.data().set("checkpoints." + checkpoint, null);
         store.save();
@@ -115,7 +141,7 @@ public final class CheckpointService {
 
     public boolean hasSnapshot(String name, String playerName) {
         String checkpoint = key(name);
-        return store.data().contains("checkpoints." + checkpoint + ".players." + playerName.toLowerCase() + ".world");
+        return store.data().contains("checkpoints." + checkpoint + ".players." + playerName.toLowerCase(java.util.Locale.ROOT) + ".world");
     }
 
     public int restore(String name, List<Player> players) {
