@@ -1096,9 +1096,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 }
             }
             case "reset" -> {
-                if (a.length == 3 && a[2].equalsIgnoreCase("all")) {
+                if (a.length == 4 && a[2].equalsIgnoreCase("all") && a[3].equalsIgnoreCase("confirm")) {
                     permissions.resetAll();
                     msg(sender, "&aAll UOP custom permission grants reset.");
+                    return;
+                }
+                if (a.length == 3 && a[2].equalsIgnoreCase("all")) {
+                    hint(sender, "Confirm removing every UOP custom permission grant",
+                            "/uop permission reset all confirm");
                     return;
                 }
                 if (a.length != 3 && a.length != 4) {
