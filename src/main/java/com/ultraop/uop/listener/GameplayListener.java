@@ -13,6 +13,9 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDismountEvent;
+import org.bukkit.event.vehicle.VehicleMoveEvent;
+import org.bukkit.util.Vector;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -116,6 +119,22 @@ public final class GameplayListener implements Listener {
         }
     }
 
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onVehicleMove(VehicleMoveEvent event) {
+        boolean frozenPassenger = event.getVehicle().getPassengers().stream()
+                .anyMatch(entity -> entity instanceof Player player && freeze.frozen(player));
+        if (!frozenPassenger) return;
+        event.getVehicle().teleport(event.getFrom());
+        event.getVehicle().setVelocity(new Vector(0.0, 0.0, 0.0));
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onFrozenDismount(EntityDismountEvent event) {
+        if (event.getEntity() instanceof Player player && freeze.frozen(player)) {
+            event.setCancelled(true);
+        }
+    }
 
     @EventHandler(ignoreCancelled = true)
     public void onHotbarChange(PlayerItemHeldEvent event) {
