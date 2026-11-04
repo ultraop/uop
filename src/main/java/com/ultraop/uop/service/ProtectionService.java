@@ -61,6 +61,7 @@ public final class ProtectionService {
     }
 
     public synchronized void reset() {
+        store.createBackup("protection-reset");
         store.data().set("protection.entries", null);
         store.save();
         refreshCache();
