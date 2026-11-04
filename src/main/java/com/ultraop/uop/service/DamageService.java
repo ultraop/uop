@@ -23,11 +23,17 @@ public final class DamageService {
         this.targets = targets;
     }
 
-    private double clamp(double value) {
+    private double validateMultiplier(double value) {
         if (!Double.isFinite(value) || value < 0.0 || value > 10.0) {
             throw new IllegalArgumentException("Damage multiplier must be between 0.0 and 10.0.");
         }
         return value;
+    }
+
+    /** Tolerant read path: malformed hand-edited values must not throw every damage tick. */
+    private double clamp(double value) {
+        if (!Double.isFinite(value)) return 1.0;
+        return Math.max(0.0, Math.min(10.0, value));
     }
 
     private String descriptor(CommandSender sender, String expression) {
@@ -38,7 +44,7 @@ public final class DamageService {
     }
 
     public void global(double multiplier) {
-        store.data().set("damage.global", clamp(multiplier));
+        store.data().set("damage.global", validateMultiplier(multiplier));
         store.save();
     }
 
@@ -53,7 +59,7 @@ public final class DamageService {
         }
         Map<String, Object> rule = new HashMap<>();
         rule.put("target", descriptor);
-        rule.put("multiplier", clamp(multiplier));
+        rule.put("multiplier", validateMultiplier(multiplier));
         next.add(rule);
         store.data().set(path, next);
         store.save();
@@ -80,6 +86,35 @@ public final class DamageService {
         Map<String, Object> copy = new HashMap<>();
         for (Map.Entry<?, ?> entry : source.entrySet()) copy.put(String.valueOf(entry.getKey()), entry.getValue());
         return copy;
+    }
+
+    /** Friendly-fire OFF cancels the event so it has no knockback/weapon durability side effects. */
+    public boolean friendlyFireDenied(Player attacker, Player victim) {
+        if (attacker == null || victim == null) return false;
+        String team = teams.teamOf(attacker.getName());
+        return team != null && team.equalsIgnoreCase(teams.teamOf(victim.getName()))
+                && teams.exists(team) && !teams.friendlyFire(team);
+    }
+
+    /** Remove stale rules as part of a Team deletion, preventing re-created teams inheriting them. */
+    public void removeTeamRules(String teamName) {
+        String descriptor = "team:" + teamName.toLowerCase(Locale.ROOT);
+        for (String path : List.of("damage.rules.outgoing", "damage.rules.incoming")) {
+            List<Map<String, Object>> kept = new ArrayList<>();
+            for (Map<?, ?> item : store.data().getMapList(path)) {
+                Map<String, Object> copy = copy(item);
+                if (!descriptor.equalsIgnoreCase(String.valueOf(copy.get("target")))) kept.add(copy);
+            }
+            store.data().set(path, kept);
+        }
+        List<Map<String, Object>> pairs = new ArrayList<>();
+        for (Map<?, ?> item : store.data().getMapList("damage.rules.pairs")) {
+            Map<String, Object> copy = copy(item);
+            if (!descriptor.equalsIgnoreCase(String.valueOf(copy.get("attacker")))
+                    && !descriptor.equalsIgnoreCase(String.valueOf(copy.get("victim")))) pairs.add(copy);
+        }
+        store.data().set("damage.rules.pairs", pairs);
+        store.save();
     }
 
     private boolean matches(String descriptor, Player player) {
@@ -120,9 +155,7 @@ public final class DamageService {
 
     public double multiplier(Player attacker, Player victim) {
         if (attacker != null) {
-            String team = teams.teamOf(attacker.getName());
-            if (team != null && team.equalsIgnoreCase(teams.teamOf(victim.getName()))
-                    && !teams.friendlyFire(team)) return 0.0;
+            if (friendlyFireDenied(attacker, victim)) return 0.0;
             Double pairMultiplier = null;
             int pairSpecificity = -1;
             for (Map<?, ?> entry : store.data().getMapList("damage.rules.pairs")) {
