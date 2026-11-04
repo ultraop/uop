@@ -1274,11 +1274,11 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             char ch = partial.charAt(i);
             if (quote != 0) {
                 if (escaped) escaped = false;
-                else if (ch == '\\\\') escaped = true;
+                else if (ch == '\\') escaped = true;
                 else if (ch == quote) quote = 0;
                 continue;
             }
-            if (ch == '"' || ch == '\\'') quote = ch;
+            if (ch == '"' || ch == '\'') quote = ch;
             else if (ch == '[') square++;
             else if (ch == ']') square = Math.max(0, square - 1);
             else if (ch == '{') curly++;
