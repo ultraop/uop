@@ -155,6 +155,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             msg(sender, "&e★ name &7— hide, show, glitch, tag");
             msg(sender, "&e★ protect / permission &7— identity and permission management");
             msg(sender, "&e★ pending &7— inspect or clear offline actions");
+            msg(sender, "&e★ pending &7— inspect or clear offline actions");
             msg(sender, "&e★ admin &7— reload, reset all, version");
             msg(sender, "&7Usage: /uop help <group>");
             msg(sender, "&7Targets: ★ Team → @a, @p, @r, @s, @e[type=player] → Player names.");
@@ -183,8 +184,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "checkpoint" -> {
                 msg(sender, "&f/uop checkpoint save <checkpoint_name> <target>");
-                msg(sender, "&f/uop checkpoint tp|back <checkpoint_name> <target>");
-                msg(sender, "&f/uop checkpoint list | delete <checkpoint_name> | clear all");
+                msg(sender, "&f/uop checkpoint tp <checkpoint_name> <target>");
+                msg(sender, "&f/uop checkpoint back <target> | list | delete <checkpoint_name>");
+                msg(sender, "&f/uop checkpoint clear all confirm");
             }
             case "damage" -> {
                 msg(sender, "&f/uop damage global <0-10>");
@@ -219,12 +221,14 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "protect" -> {
                 msg(sender, "&f/uop protect add <target> [uuid|ip|both]");
-                msg(sender, "&f/uop protect remove <target> | list | reset");
+                msg(sender, "&f/uop protect remove <target> | list");
+                msg(sender, "&f/uop protect reset confirm");
             }
             case "permission" -> {
                 msg(sender, "&f/uop permission grant|revoke <target> <nodes...>");
                 msg(sender, "&f/uop permission list <target> | check <target> <node>");
-                msg(sender, "&f/uop permission reset <target> [node|all] | reset all");
+                msg(sender, "&f/uop permission reset <target> [node|all]");
+                msg(sender, "&f/uop permission reset all confirm");
             }
             case "pending" -> {
                 msg(sender, "&f/uop pending list <player|target>");
@@ -232,7 +236,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             case "admin" -> {
                 msg(sender, "&f/uop reload");
-                msg(sender, "&f/uop reset all");
+                msg(sender, "&f/uop reset all confirm");
                 msg(sender, "&f/uop version");
             }
             default -> {
