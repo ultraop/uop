@@ -46,6 +46,7 @@ public final class CheckpointService {
     }
 
     public int restoreBack(List<Player> players) {
+        if (!store.data().contains("checkpoints." + key(BACK_CHECKPOINT))) return 0;
         return restore(BACK_CHECKPOINT, players);
     }
 
