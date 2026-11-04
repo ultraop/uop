@@ -71,11 +71,7 @@ public final class NameService {
             }
             if (hidden.getEntries().isEmpty()) hidden.unregister();
         }
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            player.setDisplayName(player.getName());
-            player.setCustomName(null);
-            player.setCustomNameVisible(false);
-        }
+        // Do not overwrite other plugins' display names or nameplate state.
         store.save();
     }
 
@@ -142,17 +138,13 @@ public final class NameService {
     }
 
     private void applyTag(Player player) {
-        String tag = tagText(player.getName());
-        String display = tag == null ? player.getName() : tag + "§r " + player.getName();
-        player.setDisplayName(display);
-        player.setCustomName(tag == null ? null : display);
-        player.setCustomNameVisible(tag != null && !hidden(player));
+        // Tags are rendered as a chat prefix. Preserve displayName, which may be
+        // owned by LuckPerms or another chat/tab plugin.
     }
 
-    public Component chatName(Player player) {
+    public Component chatPrefix(Player player) {
         String tag = tagText(player.getName());
-        return tag == null ? Component.text(player.getName())
-                : LEGACY.deserialize(tag + "§r " + player.getName());
+        return tag == null ? Component.empty() : LEGACY.deserialize(tag + "§r ");
     }
 
     public void create(String id, String color, boolean bold, boolean italic, String text) {
