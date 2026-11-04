@@ -147,7 +147,31 @@ public final class InventoryService {
         store.data().set(root + ".display-name", backupName);
         store.data().set(root + ".snapshot", snapshot(player));
         store.data().set(root + ".created-at", System.currentTimeMillis());
+        trimBackups(player.getName());
         store.save();
+    }
+
+    private void automaticBackup(Player player, String reason) {
+        String name = "auto-" + reason + "-" + System.currentTimeMillis();
+        String root = backupPath(player.getName(), name);
+        store.data().set(root + ".display-name", name);
+        store.data().set(root + ".snapshot", snapshot(player));
+        store.data().set(root + ".created-at", System.currentTimeMillis());
+        trimBackups(player.getName());
+        // Persist the safety copy before changing the live inventory.
+        store.save();
+    }
+
+    private void trimBackups(String playerName) {
+        String path = playerPath(playerName) + ".backups";
+        var section = store.data().getConfigurationSection(path);
+        if (section == null) return;
+        List<String> keys = new ArrayList<>(section.getKeys(false));
+        keys.sort(java.util.Comparator.comparingLong(key ->
+                store.data().getLong(path + "." + key + ".created-at", 0L)));
+        while (keys.size() > 20) {
+            store.data().set(path + "." + keys.remove(0), null);
+        }
     }
 
     public boolean restore(Player player, String backupName) {
@@ -155,6 +179,7 @@ public final class InventoryService {
         if (!store.data().contains(root + ".snapshot")) return false;
         Object raw = store.data().get(root + ".snapshot");
         if (!(raw instanceof Map<?, ?> snapshot)) return false;
+        automaticBackup(player, "before-restore");
         restoreSnapshot(player, snapshot);
         store.save();
         return true;
@@ -381,6 +406,7 @@ public final class InventoryService {
         if (selected == null) return false;
         Object raw = selected.get("snapshot");
         if (!(raw instanceof Map<?, ?> snapshot)) return false;
+        automaticBackup(player, "before-back");
         restoreSnapshot(player, snapshot);
         store.save();
         return true;
