@@ -45,6 +45,7 @@ public final class InventoryService {
     private final Set<String> recording = new HashSet<>();
     private final Map<String, String> lastFingerprints = new HashMap<>();
     private final Map<String, List<Map<String, Object>>> historyCache = new HashMap<>();
+    private final Set<String> migratedHistoryPendingCleanup = new HashSet<>();
     private final ConcurrentMap<String, String> pendingHistoryWrites = new ConcurrentHashMap<>();
     private final AtomicBoolean historyWriteScheduled = new AtomicBoolean();
     private final ExecutorService historyWriter = Executors.newSingleThreadExecutor(task -> {
@@ -84,6 +85,7 @@ public final class InventoryService {
 
         List<Map<String, Object>> loaded = new ArrayList<>();
         Path file = historyFile(playerName);
+        String legacyPath = playerPath(playerName) + ".history";
         if (Files.exists(file)) {
             YamlConfiguration yaml = new YamlConfiguration();
             try {
@@ -97,18 +99,20 @@ public final class InventoryService {
                 row.forEach((key, value) -> copy.put(String.valueOf(key), value));
                 loaded.add(copy);
             }
+            if (store.data().contains(legacyPath)) {
+                store.data().set(legacyPath, null);
+                saveStoreSafely("legacy inventory history cleanup");
+            }
         } else {
-            String legacyPath = playerPath(playerName) + ".history";
             for (Map<?, ?> row : store.data().getMapList(legacyPath)) {
                 Map<String, Object> copy = new LinkedHashMap<>();
                 row.forEach((key, value) -> copy.put(String.valueOf(key), value));
                 loaded.add(copy);
             }
             if (!loaded.isEmpty()) {
-                // Save the removal from the old monolithic file once; the new file
-                // is written atomically on the dedicated history writer thread.
-                store.data().set(legacyPath, null);
-                saveStoreSafely("legacy inventory history migration");
+                // Keep the legacy copy until the separate file has been written
+                // successfully. A failed write must never erase the only copy.
+                migratedHistoryPendingCleanup.add(cacheKey);
                 queueHistoryWrite(playerName, loaded);
             }
         }
@@ -175,6 +179,17 @@ public final class InventoryService {
             plugin.getLogger().severe("Inventory history remains unflushed for "
                     + pendingHistoryWrites.size() + " player(s).");
         }
+    }
+
+    private void cleanupMigratedHistory() {
+        boolean changed = false;
+        for (String playerName : new ArrayList<>(migratedHistoryPendingCleanup)) {
+            if (!Files.exists(historyFile(playerName))) continue;
+            store.data().set(playerPath(playerName) + ".history", null);
+            migratedHistoryPendingCleanup.remove(playerName);
+            changed = true;
+        }
+        if (changed) saveStoreSafely("legacy inventory history cleanup");
     }
 
     private void deleteHistoryFiles() {
@@ -481,6 +496,7 @@ public final class InventoryService {
         recording.clear();
         lastFingerprints.clear();
         historyCache.clear();
+        migratedHistoryPendingCleanup.clear();
         pendingHistoryWrites.clear();
         persistencePending = false;
         try {
@@ -493,6 +509,7 @@ public final class InventoryService {
     }
 
     public void tickHistory() {
+        cleanupMigratedHistory();
         // Retry failed asynchronous file writes even when the player's inventory is unchanged.
         if (!pendingHistoryWrites.isEmpty()) scheduleHistoryWrite();
         for (String name : new ArrayList<>(recording)) {
