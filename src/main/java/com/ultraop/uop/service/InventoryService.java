@@ -229,13 +229,11 @@ public final class InventoryService {
     }
 
     public static int validateSlot(int slot) {
-        if (slot < 0 || slot > 40) throw new IllegalArgumentException("Inventory slot must be between 0 and 40.");
-        return slot;
+        return InventoryBounds.validateSlot(slot);
     }
 
     public static int validateAmount(int amount) {
-        if (amount < 1 || amount > 99) throw new IllegalArgumentException("Amount must be between 1 and 99.");
-        return amount;
+        return InventoryBounds.validateAmount(amount);
     }
 
     public void set(Player player, int slot, Material material, int amount) {
