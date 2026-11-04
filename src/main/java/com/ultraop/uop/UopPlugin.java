@@ -51,7 +51,7 @@ public final class UopPlugin extends JavaPlugin {
                 damage, enchants, states, profiles, pending, inventory, names, protection, permissions);
         root.setExecutor(executor);
         root.setTabCompleter(executor);
-        getServer().getPluginManager().registerEvents(new GameplayListener(profiles, states, damage, pending), this);
+        getServer().getPluginManager().registerEvents(new GameplayListener(this, profiles, states, damage, pending), this);
         getServer().getPluginManager().registerEvents(new NameTagListener(names), this);
         getServer().getPluginManager().registerEvents(new ProtectionListener(protection), this);
         long sampleTicks = Math.max(1L, getConfig().getLong("history.sample-ticks", 100L));
