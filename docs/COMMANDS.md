@@ -25,10 +25,10 @@ This reference describes the implemented command tree and identifies unavailable
 /uop checkpoint list
 /uop checkpoint delete <checkpoint_name>
 /uop checkpoint tp <checkpoint_name> <target>
-/uop checkpoint back <checkpoint_name> <target>
+/uop checkpoint back <target>
 /uop checkpoint clear all
 ```
-Each Player receives an independent snapshot. `tp` restores full snapshot and position: world, coordinates, rotation, inventory, armor, offhand, selected slot and effects. Team save reports offline members. TAB suggests saved checkpoint names before target choices.
+Each Player receives an independent snapshot. Re-saving a checkpoint replaces its previous roster so stale offline snapshots cannot be mixed with new data. `tp` restores the saved state and stores the player's current state for `back`; `back <target>` restores that pre-teleport state. Snapshots include world (UUID plus name fallback), coordinates, rotation, inventory, armor, offhand, selected slot, health, food, saturation, XP, gamemode, fire/fall state, velocity and potion effects. Teleport success is checked before restore is reported. Team save reports offline members.
 
 ## Damage
 ```text
@@ -44,7 +44,7 @@ Each Player receives an independent snapshot. `tp` restores full snapshot and po
 /uop damage reset all
 /uop damage list
 ```
-Player/Team/selectors supported. Exact pair > outgoing > incoming > global. Friendly-fire OFF overrides same-Team damage.
+Player/Team/selectors supported. Exact pair > outgoing > incoming > global. Friendly-fire OFF cancels direct player and player-projectile damage between teammates. Environmental and non-player-owned damage sources are not attributed to a team owner.
 
 ## Enchant / disenchant
 ```text
@@ -124,7 +124,7 @@ Name Glitch is currently an unavailable stub: the optional dependency has not be
 /uop protect add <target> [uuid|ip|both]
 /uop protect remove <target>
 /uop protect list
-/uop protect reset
+/uop protect reset confirm
 ```
 
 ## Permissions and administration
@@ -134,14 +134,21 @@ Name Glitch is currently an unavailable stub: the optional dependency has not be
 /uop permission list <player>
 /uop permission check <player> <node>
 /uop permission reset <player> [node]
-/uop permission reset all
+/uop permission reset all confirm
 /uop help [group]
 /uop help unfreeze
 /uop reload
-/uop reset all
+/uop reset all confirm
 /uop version
 ```
-Permission administration is OP/console-only by default.
+Permission administration is OP/console-only by default. Explicit UOP denies override broader UOP wildcard grants and Bukkit/LuckPerms grants for UOP command authorization. `revoke <target> <node>` adds an explicit deny; `reset <target> <node>` removes the grant and matching deny. Reset-all commands require a second `confirm` argument and create a data backup first.
+
+## Pending offline actions
+```text
+/uop pending list <player|target>
+/uop pending clear <player|target>
+```
+Pending offline actions are deduplicated, limited per profile and expire after the configured number of days. Actions run one tick after join and are retained with a warning when they cannot be applied. Administrators can inspect and clear a player's queued actions.
 
 ## Contextual argument hints
 Examples: `[Saved loadout name]`, `[Checkpoint name]`, `[Team name]`, `[Player / selector]`, `[Enchantment]`, `[Enchantment level]`, `[Inventory slot 0-40]`, `[Multiplier 0-10]`. Suggestions are contextual by command position, including registry-derived enchantment keys and each enchantment's maximum supported level. `/uop` and `/uop help` display the command directory; `/uop help <group>` prints nested syntax and the group is TAB-completable.
