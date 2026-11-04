@@ -42,6 +42,7 @@ public final class CheckpointService {
         String root = "checkpoints." + checkpoint;
         // A repeated save replaces the whole roster; old players must not leak into the new snapshot.
         store.data().set(root + ".players", null);
+        store.data().set(root + ".return", null);
         store.data().set(root + ".display-name", name);
         int saved = 0;
         for (Player player : players) {
