@@ -2,16 +2,22 @@ package com.ultraop.uop.service;
 
 import com.ultraop.uop.profile.PlayerProfileService;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public final class FreezeImmortalService {
     private final PlayerProfileService profiles;
+    private final JavaPlugin plugin;
 
-    public FreezeImmortalService(PlayerProfileService profiles) {
+    public FreezeImmortalService(PlayerProfileService profiles, JavaPlugin plugin) {
         this.profiles = profiles;
+        this.plugin = plugin;
     }
 
     public boolean exempt(Player player) {
-        return player.isOp() || player.hasPermission("uop.freeze.exempt");
+        if (player == null) return false;
+        if (player.isOp() && plugin.getConfig().getBoolean("freeze.exempt-ops", true)) return true;
+        String permission = plugin.getConfig().getString("freeze.exempt-permission", "uop.freeze.exempt");
+        return permission != null && !permission.isBlank() && player.hasPermission(permission);
     }
 
     public void freeze(String playerName, String mode) {
