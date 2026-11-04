@@ -234,7 +234,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             }
             default -> {
                 msg(sender, "&cUnknown help group: " + group);
-                msg(sender, "&7Available: team, armor, checkpoint, damage, enchant, disenchant, freeze, unfreeze, immortal, inv, name, protect, permission, admin");
+                msg(sender, "&7Available: team, armor, checkpoint, damage, enchant, disenchant, freeze, unfreeze, immortal, inv, name, protect, permission, pending, admin");
             }
         }
     }
