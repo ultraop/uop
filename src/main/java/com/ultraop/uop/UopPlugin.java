@@ -44,6 +44,12 @@ public final class UopPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        if (!getServer().getOnlineMode()) {
+            getLogger().warning("ONLINE-MODE IS DISABLED: UOP still stores several profiles by player name. "
+                    + "Offline-mode UUIDs are not authenticated identities; name impersonation may expose "
+                    + "stored teams, permissions, inventory history and protection records. Use an authenticated "
+                    + "online-mode proxy or restrict server access.");
+        }
         initializeServices();
         PluginCommand root = getCommand("uop");
         if (root == null) throw new IllegalStateException("The /uop command is missing from plugin.yml");
