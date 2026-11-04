@@ -24,9 +24,11 @@ import java.util.Locale;
 
 public final class CheckpointService {
     private final UopStore store;
+    private final InventoryService inventory;
 
-    public CheckpointService(UopStore store) {
+    public CheckpointService(UopStore store, InventoryService inventory) {
         this.store = store;
+        this.inventory = inventory;
     }
 
     private String key(String name) {
@@ -167,6 +169,8 @@ public final class CheckpointService {
                 armorContents[i] = armor.get(i) instanceof ItemStack item ? item.clone() : null;
             }
 
+            // Save the live state before checkpoint restoration replaces inventory/equipment.
+            inventory.backupAutomatically(player, "before-checkpoint");
             if (!player.teleport(target)) continue;
             String returnBase = "checkpoints." + checkpoint + ".return." + player.getName().toLowerCase(Locale.ROOT);
             store.data().set(returnBase + ".world", previous.getWorld().getUID().toString());
