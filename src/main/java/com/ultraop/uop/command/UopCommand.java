@@ -125,6 +125,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 case "name" -> name(sender, args);
                 case "protect" -> protect(sender, args);
                 case "permission" -> permission(sender, args);
+                case "pending" -> pendingActions(sender, args);
                 default -> {
                     msg(sender, "&cUnknown command. Use /uop help.");
                 }
@@ -150,6 +151,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             msg(sender, "&e★ inv &7— view, set, remove, give, take, clear, swap, backups, record, back, locks");
             msg(sender, "&e★ name &7— hide, show, glitch, tag");
             msg(sender, "&e★ protect / permission &7— identity and permission management");
+            msg(sender, "&e★ pending &7— inspect or clear offline actions");
             msg(sender, "&e★ admin &7— reload, reset all, version");
             msg(sender, "&7Usage: /uop help <group>");
             msg(sender, "&7Targets: ★ Team → @a, @p, @r, @s, @e[type=player] → Player names.");
@@ -220,6 +222,10 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 msg(sender, "&f/uop permission grant|revoke <target> <nodes...>");
                 msg(sender, "&f/uop permission list <target> | check <target> <node>");
                 msg(sender, "&f/uop permission reset <target> [node|all] | reset all");
+            }
+            case "pending" -> {
+                msg(sender, "&f/uop pending list <player|target>");
+                msg(sender, "&f/uop pending clear <player|target>");
             }
             case "admin" -> {
                 msg(sender, "&f/uop reload");
@@ -1119,6 +1125,34 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private void pendingActions(CommandSender sender, String[] a) {
+        require(sender, "uop.admin");
+        if (a.length < 2) {
+            hint(sender, "Choose pending action", "/uop pending <list|clear> <player|target>");
+            return;
+        }
+        if (!List.of("list", "clear").contains(a[1].toLowerCase(Locale.ROOT)) || a.length != 3) {
+            hint(sender, "Select a player and list or clear queued offline actions",
+                    "/uop pending <list|clear> <player|target>");
+            return;
+        }
+        List<String> names = targets.resolveNames(sender, a[2]);
+        if (a[1].equalsIgnoreCase("list")) {
+            for (String name : names) {
+                List<String> actions = pending.pendingDescriptions(name);
+                if (actions.isEmpty()) msg(sender, "&7" + name + ": no pending actions.");
+                else {
+                    msg(sender, "&f" + name + " pending actions (" + actions.size() + "):");
+                    for (String action : actions) msg(sender, "&7" + action);
+                }
+            }
+        } else {
+            int cleared = 0;
+            for (String name : names) cleared += pending.clear(name);
+            msg(sender, "&aCleared " + cleared + " pending action(s) across " + names.size() + " profile(s).");
+        }
+    }
+
     private void reset(CommandSender sender, String[] a) {
         require(sender, "uop.admin");
         if (a.length == 2 && a[1].equalsIgnoreCase("all")) {
@@ -1190,6 +1224,12 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             if (root.equals("name")) return nameTabs(a);
             if (root.equals("protect")) return protectTabs(a);
             if (root.equals("permission")) return permissionTabs(a);
+            if (root.equals("pending")) {
+                if (a.length == 2) return matching(List.of("list", "clear"), a[1]);
+                if (a.length == 3 && List.of("list", "clear").contains(a[1].toLowerCase(Locale.ROOT))) {
+                    return targets.suggestions(a[2]);
+                }
+            }
             if (root.equals("reset") && a.length == 2) return matching(List.of("all"), a[1]);
             if (root.equals("reset") && a.length == 3 && a[1].equalsIgnoreCase("all")) {
                 return matching(List.of("confirm"), a[2]);
