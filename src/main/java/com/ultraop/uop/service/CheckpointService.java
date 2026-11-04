@@ -152,14 +152,6 @@ public final class CheckpointService {
 
             // Keep a one-step return location so /checkpoint back has distinct semantics.
             Location previous = player.getLocation();
-            String returnBase = "checkpoints." + checkpoint + ".return." + player.getName().toLowerCase(Locale.ROOT);
-            store.data().set(returnBase + ".world", previous.getWorld().getUID().toString());
-            store.data().set(returnBase + ".world-name", previous.getWorld().getName());
-            store.data().set(returnBase + ".x", previous.getX());
-            store.data().set(returnBase + ".y", previous.getY());
-            store.data().set(returnBase + ".z", previous.getZ());
-            store.data().set(returnBase + ".yaw", previous.getYaw());
-            store.data().set(returnBase + ".pitch", previous.getPitch());
 
             List<?> storage = store.data().getList(base + ".storage", List.of());
             ItemStack[] contents = new ItemStack[36];
@@ -173,6 +165,14 @@ public final class CheckpointService {
             }
 
             if (!player.teleport(target)) continue;
+            String returnBase = "checkpoints." + checkpoint + ".return." + player.getName().toLowerCase(Locale.ROOT);
+            store.data().set(returnBase + ".world", previous.getWorld().getUID().toString());
+            store.data().set(returnBase + ".world-name", previous.getWorld().getName());
+            store.data().set(returnBase + ".x", previous.getX());
+            store.data().set(returnBase + ".y", previous.getY());
+            store.data().set(returnBase + ".z", previous.getZ());
+            store.data().set(returnBase + ".yaw", previous.getYaw());
+            store.data().set(returnBase + ".pitch", previous.getPitch());
             player.getInventory().setStorageContents(contents);
             player.getInventory().setArmorContents(armorContents);
             Object offhand = store.data().get(base + ".offhand");
