@@ -13,6 +13,8 @@ import org.bukkit.scoreboard.Team;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -23,9 +25,58 @@ public final class NameService {
             "dark_red", "dark_purple", "gold", "gray", "dark_gray", "blue", "green", "aqua",
             "red", "light_purple", "yellow", "white");
     private final UopStore store;
+    private volatile Map<String, String> playerTagCache = Map.of();
+    private volatile Map<String, String> tagTextCache = Map.of();
 
     public NameService(UopStore store) {
         this.store = store;
+        refreshTagCache();
+    }
+
+    /** Called only on the server thread; async chat handlers read immutable snapshots. */
+    public synchronized void refreshTagCache() {
+        Map<String, String> assignments = new HashMap<>();
+        Map<String, String> texts = new HashMap<>();
+        var tagSection = store.data().getConfigurationSection("name-tags");
+        if (tagSection != null) {
+            for (String id : tagSection.getKeys(false)) {
+                String value = store.data().getString("name-tags." + id + ".text");
+                if (value != null && !value.isBlank()) texts.put(id.toLowerCase(Locale.ROOT), value);
+            }
+        }
+        var playerSection = store.data().getConfigurationSection("players");
+        if (playerSection != null) {
+            for (String player : playerSection.getKeys(false)) {
+                String id = store.data().getString("players." + player + ".name.tag");
+                if (id != null) assignments.put(player.toLowerCase(Locale.ROOT), id.toLowerCase(Locale.ROOT));
+            }
+        }
+        playerTagCache = Map.copyOf(assignments);
+        tagTextCache = Map.copyOf(texts);
+    }
+
+    /** Restore the main scoreboard before plugin disable or destructive reset. */
+    public void shutdown() {
+        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team hidden = board.getTeam(HIDDEN_TEAM);
+        if (hidden != null) {
+            for (String entry : new ArrayList<>(hidden.getEntries())) {
+                String previousName = store.data().getString(playerPath(entry) + ".previous-scoreboard-team");
+                if (previousName != null) {
+                    Team previous = board.getTeam(previousName);
+                    if (previous != null) previous.addEntry(entry);
+                    store.data().set(playerPath(entry) + ".previous-scoreboard-team", null);
+                }
+                hidden.removeEntry(entry);
+            }
+            if (hidden.getEntries().isEmpty()) hidden.unregister();
+        }
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.setDisplayName(player.getName());
+            player.setCustomName(null);
+            player.setCustomNameVisible(false);
+        }
+        store.save();
     }
 
     private String playerPath(String name) {
@@ -160,6 +211,7 @@ public final class NameService {
         }
         store.data().set("name-tags." + normalized, null);
         store.save();
+        refreshTagCache();
         refreshAssigned(normalized);
     }
 
@@ -171,6 +223,7 @@ public final class NameService {
         }
         store.data().set(playerPath(playerName) + ".tag", normalized);
         store.save();
+        refreshTagCache();
         Player player = Bukkit.getPlayerExact(playerName);
         if (player != null) refresh(player);
     }
@@ -178,6 +231,7 @@ public final class NameService {
     public void removeTag(String playerName) {
         store.data().set(playerPath(playerName) + ".tag", null);
         store.save();
+        refreshTagCache();
         Player player = Bukkit.getPlayerExact(playerName);
         if (player != null) refresh(player);
     }
@@ -187,14 +241,12 @@ public final class NameService {
     }
 
     public String tagId(String playerName) {
-        return store.data().getString(playerPath(playerName) + ".tag");
+        return playerTagCache.get(playerName.toLowerCase(Locale.ROOT));
     }
 
     private String tagText(String playerName) {
         String id = tagId(playerName);
-        if (id == null || !store.data().contains("name-tags." + id)) return null;
-        String text = store.data().getString("name-tags." + id + ".text");
-        return text == null || text.isBlank() ? null : text;
+        return id == null ? null : tagTextCache.get(id.toLowerCase(Locale.ROOT));
     }
 
     private void refreshAssigned(String id) {
