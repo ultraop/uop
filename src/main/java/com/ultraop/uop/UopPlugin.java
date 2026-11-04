@@ -69,14 +69,14 @@ public final class UopPlugin extends JavaPlugin {
         targets = new TargetResolver(teams);
         profiles = new PlayerProfileService(store, teams);
         kits = new ArmorKitService();
-        loadouts = new ArmorLoadoutService(store);
+        inventory = new InventoryService(this, store, teams);
+        loadouts = new ArmorLoadoutService(store, inventory);
         checkpoints = new CheckpointService(store);
         damage = new DamageService(store, teams, targets);
         enchants = new EnchantService();
         states = new FreezeImmortalService(profiles);
         configureFreezeExemptions();
         pending = new PendingActionService(store, this, kits, loadouts, checkpoints, enchants);
-        inventory = new InventoryService(this, store, teams);
         names = new NameService(store);
         protection = new ProtectionService(store);
         permissions = new PermissionService(store);
