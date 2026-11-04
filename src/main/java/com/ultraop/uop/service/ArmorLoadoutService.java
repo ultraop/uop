@@ -12,9 +12,11 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public final class ArmorLoadoutService {
     private final UopStore store;
+    private final InventoryService inventory;
 
-    public ArmorLoadoutService(UopStore store) {
+    public ArmorLoadoutService(UopStore store, InventoryService inventory) {
         this.store = store;
+        this.inventory = inventory;
     }
 
     private String key(String name) {
@@ -65,6 +67,9 @@ public final class ArmorLoadoutService {
         ItemStack[] armorContents = new ItemStack[4];
         for (int i = 0; i < Math.min(36, storage.size()); i++) contents[i] = storage.get(i) instanceof ItemStack item ? item.clone() : null;
         for (int i = 0; i < Math.min(4, armor.size()); i++) armorContents[i] = armor.get(i) instanceof ItemStack item ? item.clone() : null;
+        // The loadout replaces the entire inventory, so snapshot the current
+        // state before any live player data is changed.
+        inventory.backup(player, "auto-loadout-" + System.currentTimeMillis());
         player.getInventory().setStorageContents(contents);
         player.getInventory().setArmorContents(armorContents);
         Object offhand = store.data().get(base + ".offhand");
