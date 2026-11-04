@@ -76,7 +76,7 @@ public final class DamageService {
         Map<String, Object> rule = new HashMap<>();
         rule.put("attacker", a);
         rule.put("victim", v);
-        rule.put("multiplier", clamp(multiplier));
+        rule.put("multiplier", validateMultiplier(multiplier));
         next.add(rule);
         store.data().set("damage.rules.pairs", next);
         store.save();
@@ -223,6 +223,6 @@ public final class DamageService {
     }
 
     public double global() {
-        return store.data().getDouble("damage.global", 1.0);
+        return clamp(store.data().getDouble("damage.global", 1.0));
     }
 }
