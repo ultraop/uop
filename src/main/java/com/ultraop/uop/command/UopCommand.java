@@ -1221,6 +1221,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 }
             }
             if (root.equals("inv")) return inventoryTabs(sender, a);
+            if (root.equals("pending")) return pendingTabs(a);
             if (root.equals("name")) return nameTabs(a);
             if (root.equals("protect")) return protectTabs(a);
             if (root.equals("permission")) return permissionTabs(a);
@@ -1233,7 +1234,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
 
 
     private boolean rootAllowed(CommandSender sender, String root) {
-        if (root.equals("permission")) return admin(sender) || sender.hasPermission("uop.permission");
+        if (root.equals("permission")) return admin(sender) || sender.hasPermission("uop.permission")
+                || sender instanceof Player player && permissions.has(player, "uop.permission");
         if (root.equals("reload") || root.equals("reset")) return admin(sender)
                 || sender.hasPermission("uop.admin")
                 || sender instanceof Player player && permissions.has(player, "uop.admin");
@@ -1252,6 +1254,40 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         };
         return !node.isBlank() && (admin(sender) || sender.hasPermission(node)
                 || sender instanceof Player player && permissions.has(player, node));
+    }
+
+    private List<String> pendingTabs(String[] a) {
+        if (a.length == 2) return matching(List.of("list", "clear"), a[1]);
+        if (a.length == 3 && List.of("list", "clear").contains(a[1].toLowerCase(Locale.ROOT))) {
+            return playerNames(a[2]);
+        }
+        if (a.length == 4 && a[1].equalsIgnoreCase("clear")) return matching(List.of("confirm"), a[3]);
+        return List.of();
+    }
+
+    private List<String> targetSuggestions(String partial) {
+        if (partial == null) return targets.suggestions("");
+        int square = 0, curly = 0, lastComma = -1;
+        char quote = 0;
+        boolean escaped = false;
+        for (int i = 0; i < partial.length(); i++) {
+            char ch = partial.charAt(i);
+            if (quote != 0) {
+                if (escaped) escaped = false;
+                else if (ch == '\\\\') escaped = true;
+                else if (ch == quote) quote = 0;
+                continue;
+            }
+            if (ch == '"' || ch == '\\'') quote = ch;
+            else if (ch == '[') square++;
+            else if (ch == ']') square = Math.max(0, square - 1);
+            else if (ch == '{') curly++;
+            else if (ch == '}') curly = Math.max(0, curly - 1);
+            else if (ch == ',' && square == 0 && curly == 0) lastComma = i;
+        }
+        String listPrefix = lastComma < 0 ? "" : partial.substring(0, lastComma + 1);
+        String token = lastComma < 0 ? partial : partial.substring(lastComma + 1);
+        return targets.suggestions(token).stream().map(value -> listPrefix + value).toList();
     }
 
     private List<String> inventoryTabs(CommandSender sender, String[] a) {
@@ -1292,7 +1328,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         }
         if (action.equals("record")) {
             if (a.length == 3) return matching(List.of("start", "stop", "status"), a[2]);
-            if (a.length == 4 && List.of("start", "stop").contains(a[2])) return targets.suggestions(a[3]);
+            if (a.length == 4 && (a[2].equalsIgnoreCase("start") || a[2].equalsIgnoreCase("stop"))) return targetSuggestions(a[3]);
         }
         if (action.equals("lock") || action.equals("unlock")) {
             if (a.length == 3) return matching(List.of("inventory", "armor", "drop"), a[2]);
