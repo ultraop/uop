@@ -60,6 +60,7 @@ public final class UopPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new GameplayListener(profiles, states, damage, pending, this), this);
         getServer().getPluginManager().registerEvents(new NameTagListener(names), this);
         getServer().getPluginManager().registerEvents(new ProtectionListener(protection), this);
+        names.refreshAll();
         long sampleTicks = Math.max(1L, getConfig().getLong("history.sample-ticks", 100L));
         historyTask = Bukkit.getScheduler().runTaskTimer(this, inventory::tickHistory, sampleTicks, sampleTicks).getTaskId();
         getLogger().info("UOP enabled: Team, target, checkpoint, damage, enchantment, freeze and immortal services registered.");
