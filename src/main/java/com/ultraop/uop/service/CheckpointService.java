@@ -124,7 +124,7 @@ public final class CheckpointService {
 
     public boolean hasSnapshot(String name, String playerName) {
         String checkpoint = key(name);
-        return store.data().contains("checkpoints." + checkpoint + ".players." + playerName.toLowerCase() + ".world");
+        return store.data().contains("checkpoints." + checkpoint + ".players." + playerName.toLowerCase(Locale.ROOT) + ".world");
     }
 
     public int restore(String name, List<Player> players) {
