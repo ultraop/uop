@@ -86,7 +86,8 @@ public final class GameplayListener implements Listener {
             if (byEntity.getDamager() instanceof Player player) attacker = player;
             else if (byEntity.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player player) attacker = player;
         }
-        if (freeze.full(victim) || (attacker != null && freeze.frozen(attacker))) {
+        if (freeze.full(victim) || (attacker != null && freeze.frozen(attacker))
+                || damage.friendlyFireDisabled(attacker, victim)) {
             event.setCancelled(true);
             return;
         }
