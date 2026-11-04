@@ -11,8 +11,10 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -23,9 +25,44 @@ public final class NameService {
             "dark_red", "dark_purple", "gold", "gray", "dark_gray", "blue", "green", "aqua",
             "red", "light_purple", "yellow", "white");
     private final UopStore store;
+    private volatile Map<String, String> chatTags = Map.of();
 
     public NameService(UopStore store) {
         this.store = store;
+        refreshTagSnapshot();
+    }
+
+    /** Rebuild the async-chat snapshot on the server thread after writes or reloads. */
+    public synchronized void refreshTagSnapshot() {
+        Map<String, String> next = new HashMap<>();
+        var players = store.data().getConfigurationSection("players");
+        if (players != null) {
+            for (String playerKey : players.getKeys(false)) {
+                String id = store.data().getString("players." + playerKey + ".name.tag");
+                if (id == null || id.isBlank()) continue;
+                String value = store.data().getString("name-tags." + id + ".text");
+                if (value != null && !value.isBlank()) next.put(playerKey.toLowerCase(Locale.ROOT), value);
+            }
+        }
+        chatTags = Map.copyOf(next);
+    }
+
+    /** Restore online scoreboard/name state before /uop reset all clears metadata. */
+    public void resetRuntimeState() {
+        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team hidden = board.getTeam(HIDDEN_TEAM);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (hidden != null) hidden.removeEntry(player.getName());
+            String previousName = store.data().getString(playerPath(player.getName()) + ".previous-scoreboard-team");
+            if (previousName != null) {
+                Team previous = board.getTeam(previousName);
+                if (previous != null) previous.addEntry(player.getName());
+            }
+            player.setDisplayName(player.getName());
+            player.setCustomName(null);
+            player.setCustomNameVisible(false);
+        }
+        chatTags = Map.of();
     }
 
     private String playerPath(String name) {
@@ -99,7 +136,7 @@ public final class NameService {
     }
 
     public Component chatName(Player player) {
-        String tag = tagText(player.getName());
+        String tag = chatTags.get(player.getName().toLowerCase(Locale.ROOT));
         return tag == null ? Component.text(player.getName())
                 : LEGACY.deserialize(tag + "§r " + player.getName());
     }
@@ -133,6 +170,7 @@ public final class NameService {
         store.data().set(base + ".bold", bold);
         store.data().set(base + ".italic", italic);
         store.save();
+        refreshTagSnapshot();
     }
 
     public List<String> tags() {
@@ -160,6 +198,7 @@ public final class NameService {
         }
         store.data().set("name-tags." + normalized, null);
         store.save();
+        refreshTagSnapshot();
         refreshAssigned(normalized);
     }
 
@@ -171,6 +210,7 @@ public final class NameService {
         }
         store.data().set(playerPath(playerName) + ".tag", normalized);
         store.save();
+        refreshTagSnapshot();
         Player player = Bukkit.getPlayerExact(playerName);
         if (player != null) refresh(player);
     }
@@ -178,12 +218,13 @@ public final class NameService {
     public void removeTag(String playerName) {
         store.data().set(playerPath(playerName) + ".tag", null);
         store.save();
+        refreshTagSnapshot();
         Player player = Bukkit.getPlayerExact(playerName);
         if (player != null) refresh(player);
     }
 
     public boolean hasTag(Player player) {
-        return tagText(player.getName()) != null;
+        return chatTags.containsKey(player.getName().toLowerCase(Locale.ROOT));
     }
 
     public String tagId(String playerName) {
