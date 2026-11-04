@@ -110,12 +110,14 @@ public final class CheckpointService {
     public boolean delete(String name) {
         String checkpoint = key(name);
         if (!store.data().contains("checkpoints." + checkpoint)) return false;
+        store.createBackup("checkpoint-delete");
         store.data().set("checkpoints." + checkpoint, null);
         store.save();
         return true;
     }
 
     public void clear() {
+        store.createBackup("checkpoint-clear");
         store.data().set("checkpoints", null);
         store.save();
     }
