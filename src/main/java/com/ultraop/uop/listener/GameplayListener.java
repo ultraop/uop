@@ -8,6 +8,7 @@ import org.bukkit.Location;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -94,7 +95,10 @@ public final class GameplayListener implements Listener {
         Player attacker = null;
         if (event instanceof EntityDamageByEntityEvent byEntity) {
             if (byEntity.getDamager() instanceof Player player) attacker = player;
-            else if (byEntity.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player player) attacker = player;
+            else if (byEntity.getDamager() instanceof Projectile projectile
+                    && projectile.getShooter() instanceof Player player) attacker = player;
+            else if (byEntity.getDamager() instanceof Tameable tameable
+                    && tameable.getOwner() instanceof Player player) attacker = player;
         }
         if (freeze.full(victim) || (attacker != null && freeze.frozen(attacker))
                 || damage.friendlyFireDisabled(attacker, victim)) {
