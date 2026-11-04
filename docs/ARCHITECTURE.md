@@ -33,7 +33,7 @@ com.ultraop.uop
 ```
 
 ## Shared target resolution
-Every compatible command uses one `TargetResolver`; individual services must not parse selectors or Team names independently. Its target expression parser preserves commas inside selector brackets, rejects unmatched/nested brackets and empty comma-list entries, and de-duplicates resolved players.
+Every compatible command uses one `TargetResolver`; individual services must not parse selectors or Team names independently. Its target expression parser preserves commas inside balanced selector/NBT bracket structures and quoted values, rejects mismatched/unmatched brackets, invalid direct selector nesting and empty comma-list entries, and de-duplicates resolved players.
 
 Completion order:
 1. Team names, displayed with a visual marker such as `★` (marker is not part of actual command input).
@@ -54,7 +54,7 @@ Persist a normalized-username PlayerProfile with last-seen UUID metadata. Keep d
 Armor, checkpoints, damage, enchant/disenchant, freeze/unfreeze, immortal, inventory operations/locks and name/tag operations all accept Player, Team or supported selector targets. A Team target resolves its roster and executes per-player behaviour. A Team does not own one shared inventory or one shared checkpoint snapshot unless an explicit operation says otherwise.
 
 ## Checkpoint snapshot
-Capture an independent snapshot per selected online player: identity metadata, world, position, yaw/pitch, full inventory, armor, offhand, selected hotbar slot, health, food level, saturation and active potion effects. Restore clamps health/food/saturation to the player's current legal ranges and skips a snapshot when its world is unavailable. `checkpoint tp` is full restore plus teleport, not teleport-only. Saving a Team checkpoint reports offline members without inventing snapshots. Restoring reports restored/offline/missing/failed counts.
+Capture an independent snapshot per selected online player: identity metadata, world UUID/name, position, yaw/pitch, velocity, full inventory, armor, offhand, selected hotbar slot, health, food level, saturation, XP, fire ticks, gamemode and active potion effects. Restore clamps health/food/saturation to the player's current legal ranges and skips a snapshot when its world is unavailable. `checkpoint tp` is full restore plus teleport, not teleport-only. Saving a Team checkpoint reports offline members without inventing snapshots. Restoring reports restored/offline/missing/failed counts.
 
 ## Damage precedence
 1. Exact attacker → victim rule.
@@ -76,7 +76,7 @@ Immortal prevents lethal damage and maintains at least 1 HP. It applies to Playe
 Inventory belongs to each player. Team targets mean apply per member, not a pooled inventory. Support view/edit/give/take/clear, backup/restore/history, inventory/armor/drop locks, Player swap and Team-to-Team swap. Team swap initially requires equal roster sizes, deterministic member ordering and rollback snapshots; otherwise abort all changes.
 
 ## Storage and migration
-Use versioned YAML initially with atomic replacement and backups. Data sections: `schema-version`, `teams`, `players`, `armor-loadouts`, `checkpoints`, `damage-rules`, `inventory-backups`, `inventory-history`, `name-tags`, `protection`, `permissions`.
+Use versioned YAML initially with atomic replacement and backups. The main `uop.yml` stores `schema-version`, `teams`, `players`, `armor-loadouts`, `checkpoints`, damage rules, inventory backups, name tags, protection, permissions and the active recording roster. Inventory history snapshots are stored separately under `history/<player>.yml`, cached in memory, serialized on the server thread and written by a dedicated single-thread writer using temporary files and atomic replacement. Existing in-YAML histories migrate lazily when that player's history is first accessed.
 
 Legacy migration is opt-in: detect old `plugins/UOP-Recording-Tools/data/data.yml`, back it up first, migrate only reliably mappable data, retain UUID history, create name aliases only where reliable, and report ambiguous/unsupported data. Never delete legacy data.
 
@@ -84,4 +84,4 @@ Legacy migration is opt-in: detect old `plugins/UOP-Recording-Tools/data/data.ym
 Every argument has a concise usage hint (`[Team name]`, `[Player / selector]`, `[Checkpoint name]`, `[Enchantment level 1-5]`). Suggestions are contextual and based on current persisted data. Hide invalid options. Strip display markers before parsing. Permission checks happen during execution, not just in TAB completion.
 
 ## Security and performance
-Avoid full-world scans and blocking disk I/O on the main tick. Bound inventory history, detect duplicate snapshots, validate whole Team operations before mutation, snapshot before destructive bulk operations, and log detailed errors server-side while showing concise user-facing errors.
+Avoid full-world scans and blocking disk I/O on the main tick. Inventory history avoids rewriting the monolithic UOP data file for every sample; per-player history files are atomically replaced by a dedicated writer. Bound inventory history, detect duplicate snapshots, validate whole Team operations before mutation, snapshot before destructive bulk operations, and log detailed errors server-side while showing concise user-facing errors.
