@@ -32,6 +32,7 @@
 - [x] Normal/full freeze.
 - [x] Inventory operations, Player/Team swap, backup, history and locks.
 - [x] Persist active history sessions across reconnect/restart; retry failed samples without cancelling the sampler.
+- [x] Store per-player history separately using atomic background file writes; migrate legacy YAML history lazily.
 - [x] Name visibility/tags, protection and permissions.
 - [ ] Complete Team support audit, including offline inventory operations and edge cases.
 
@@ -49,7 +50,7 @@
 ## Phase 5 — Hardening and release
 - [ ] Final command permission and argument audit.
 - [ ] Final TAB/hint audit across every argument and selector filter.
-- [ ] Selector edge-case tests.
+- [x] Selector edge-case tests (nested NBT lists, quoted commas, malformed brackets and empty entries).
 - [ ] No-partial-update tests for bulk Team operations.
 - [ ] Legacy data migration test with pre-migration backup.
 - [ ] Paper 1.21.11 live server tests.
