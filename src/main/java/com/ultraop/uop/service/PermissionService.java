@@ -1,6 +1,7 @@
 package com.ultraop.uop.service;
 
 import com.ultraop.uop.storage.UopStore;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -20,21 +21,27 @@ public final class PermissionService {
 
     public void grant(String playerName, List<String> nodes) {
         List<String> current = new ArrayList<>(store.data().getStringList(path(playerName)));
-        for (String node : nodes) {
-            String normalized = normalize(node);
+        for (String raw : nodes) {
+            String normalized = normalize(raw);
             if (normalized.equals("all")) normalized = "*";
+            current.removeIf(value -> normalizeStored(value).equals("!" + normalized));
             if (!current.contains(normalized)) current.add(normalized);
         }
-        store.data().set(path(playerName), current);
+        store.data().set(path(playerName), current.isEmpty() ? null : current);
         store.save();
     }
 
+    /**
+     * An explicit deny is stored as !node. It is evaluated before Bukkit/OP grants,
+     * so a per-player revoke can override an inherited uop.* or OP permission.
+     */
     public void revoke(String playerName, List<String> nodes) {
         List<String> current = new ArrayList<>(store.data().getStringList(path(playerName)));
-        for (String node : nodes) {
-            String normalized = normalize(node);
-            if (normalized.equals("all")) current.clear();
-            else current.removeIf(value -> normalizeStored(value).equals(normalized));
+        for (String raw : nodes) {
+            String normalized = normalize(raw);
+            if (normalized.equals("all")) normalized = "*";
+            String denied = "!" + normalized;
+            if (!current.contains(denied)) current.add(denied);
         }
         store.data().set(path(playerName), current.isEmpty() ? null : current);
         store.save();
@@ -46,35 +53,30 @@ public final class PermissionService {
 
     public boolean has(Player player, String permission) {
         if (player == null) return false;
-        if (player.isOp() || player.hasPermission(permission)) return true;
-        String requested = normalize(permission);
-        for (String stored : list(player.getName())) {
-            String node = normalizeStored(stored);
-            if (node.equals("*") || node.equals(requested)) return true;
-            if (node.endsWith(".*") && requested.startsWith(node.substring(0, node.length() - 1))) return true;
-        }
-        return false;
+        Boolean explicit = PermissionRuleSet.explicitDecision(list(player.getName()), permission);
+        if (explicit != null) return explicit;
+        return player.isOp() || player.hasPermission(permission);
     }
 
     public boolean check(String playerName, String permission) {
-        String requested = normalize(permission);
-        for (String stored : list(playerName)) {
-            String node = normalizeStored(stored);
-            if (node.equals("*") || node.equals(requested)) return true;
-            if (node.endsWith(".*") && requested.startsWith(node.substring(0, node.length() - 1))) return true;
-        }
-        return false;
+        Boolean explicit = PermissionRuleSet.explicitDecision(list(playerName), permission);
+        if (explicit != null) return explicit;
+        Player online = Bukkit.getPlayerExact(playerName);
+        return online != null && (online.isOp() || online.hasPermission(permission));
     }
 
     public void reset(String playerName, String permission) {
+        List<String> current = new ArrayList<>(list(playerName));
         if (permission == null || permission.equalsIgnoreCase("all")) {
-            store.data().set(path(playerName), null);
+            current.clear();
         } else {
             String requested = normalize(permission);
-            List<String> current = new ArrayList<>(list(playerName));
-            current.removeIf(node -> normalizeStored(node).equals(requested));
-            store.data().set(path(playerName), current.isEmpty() ? null : current);
+            current.removeIf(value -> {
+                String node = normalizeStored(value);
+                return node.equals(requested) || node.equals("!" + requested);
+            });
         }
+        store.data().set(path(playerName), current.isEmpty() ? null : current);
         store.save();
     }
 
