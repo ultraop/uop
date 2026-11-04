@@ -276,8 +276,8 @@ public final class ArmorKitService {
                 : material.contains("crossbow") ? "crossbow"
                 : material.contains("trident") ? "trident"
                 : material.contains("mace") ? "mace"
-                : material.contains("axe") ? "axe"
-                : material.contains("pickaxe") || material.contains("shovel") || material.contains("hoe") ? "tool" : "other";
+                : material.contains("pickaxe") || material.contains("shovel") || material.contains("hoe") ? "tool"
+                : material.contains("axe") ? "axe" : "other";
         List<Enchantment> applied = new ArrayList<>();
         for (Enchantment enchantment : Registry.ENCHANTMENT) {
             String id = enchantment.getKey().getKey().toLowerCase(Locale.ROOT);
