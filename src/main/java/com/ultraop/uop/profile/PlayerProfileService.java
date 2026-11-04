@@ -53,10 +53,16 @@ public final class PlayerProfileService {
 
     public void observe(Player player) {
         String base = path(player.getName());
-        store.data().set(base + ".last-name", player.getName());
-        store.data().set(base + ".last-uuid", player.getUniqueId().toString());
+        String previousName = store.data().getString(base + ".last-name");
+        String previousUuid = store.data().getString(base + ".last-uuid");
+        boolean changed = !player.getName().equals(previousName)
+                || !player.getUniqueId().toString().equals(previousUuid);
+        if (changed) {
+            store.data().set(base + ".last-name", player.getName());
+            store.data().set(base + ".last-uuid", player.getUniqueId().toString());
+            store.save();
+        }
         // Team membership is intentionally name-based and is not recreated or removed here.
-        store.save();
         state(player.getName());
     }
 
