@@ -1234,6 +1234,8 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
 
 
     private boolean rootAllowed(CommandSender sender, String root) {
+        if (root.equals("pending")) return admin(sender) || sender.hasPermission("uop.admin")
+                || sender instanceof Player player && permissions.has(player, "uop.admin");
         if (root.equals("permission")) return admin(sender) || sender.hasPermission("uop.permission")
                 || sender instanceof Player player && permissions.has(player, "uop.permission");
         if (root.equals("reload") || root.equals("reset")) return admin(sender)
