@@ -104,7 +104,7 @@ public final class InventoryService {
         int remaining = amount;
         int removed = 0;
         PlayerInventory inventory = player.getInventory();
-        for (int slot = 0; slot <= 40 && remaining > 0; slot++) {
+        for (int slot = 0; slot < 36 && remaining > 0; slot++) {
             ItemStack item = inventory.getItem(slot);
             if (item == null || item.getType() != material) continue;
             int count = Math.min(remaining, item.getAmount());
@@ -145,7 +145,30 @@ public final class InventoryService {
         store.data().set(root + ".display-name", backupName);
         store.data().set(root + ".snapshot", snapshot(player));
         store.data().set(root + ".created-at", System.currentTimeMillis());
+        pruneBackups(player.getName());
         store.save();
+    }
+
+    private void pruneBackups(String playerName) {
+        String path = playerPath(playerName) + ".backups";
+        var section = store.data().getConfigurationSection(path);
+        if (section == null) return;
+        int limit = Math.max(1, plugin.getConfig().getInt("history.max-backups", 20));
+        List<String> names = new ArrayList<>(section.getKeys(false));
+        names.sort((a, b) -> Long.compare(
+                store.data().getLong(path + "." + a + ".created-at", 0L),
+                store.data().getLong(path + "." + b + ".created-at", 0L)));
+        while (names.size() > limit) {
+            store.data().set(path + "." + names.remove(0), null);
+        }
+    }
+
+    /** Stop active sessions and clear their volatile fingerprints before a full UOP reset. */
+    public void clearRuntimeForReset() {
+        recording.clear();
+        lastFingerprints.clear();
+        persistencePending = false;
+        store.data().set("inventory-recording.active", null);
     }
 
     public boolean restore(Player player, String backupName) {
@@ -153,6 +176,7 @@ public final class InventoryService {
         if (!store.data().contains(root + ".snapshot")) return false;
         Object raw = store.data().get(root + ".snapshot");
         if (!(raw instanceof Map<?, ?> snapshot)) return false;
+        backup(player, "auto-pre-restore-" + System.currentTimeMillis());
         restoreSnapshot(player, snapshot);
         store.save();
         return true;
@@ -372,6 +396,7 @@ public final class InventoryService {
         if (selected == null) selected = history.get(0);
         Object raw = selected.get("snapshot");
         if (!(raw instanceof Map<?, ?> snapshot)) return false;
+        backup(player, "auto-pre-back-" + System.currentTimeMillis());
         restoreSnapshot(player, snapshot);
         store.save();
         return true;
