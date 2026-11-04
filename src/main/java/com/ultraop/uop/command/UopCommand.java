@@ -725,8 +725,17 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             return;
         }
         List<String> names = targets.resolveNames(sender, a[2]);
-        for (String name : names) states.freeze(name, a[1].toLowerCase(Locale.ROOT));
-        msg(sender, "&a" + a[1] + " freeze stored for " + names.size() + " profile(s).");
+        List<String> exemptOnline = new ArrayList<>();
+        for (String name : names) {
+            states.freeze(name, a[1].toLowerCase(Locale.ROOT));
+            Player online = Bukkit.getPlayerExact(name);
+            if (online != null && states.exempt(online)) exemptOnline.add(name);
+        }
+        msg(sender, "&a" + a[1] + " freeze saved for " + names.size() + " profile(s).");
+        if (!exemptOnline.isEmpty()) {
+            msg(sender, "&eFreeze is not active for exempt online player(s): &f" + String.join(", ", exemptOnline));
+            msg(sender, "&7Set freeze.exempt-ops=false or remove the configured exemption, then run /uop reload.");
+        }
     }
 
     private void immortal(CommandSender sender, String[] a) {
@@ -912,7 +921,11 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 List<Player> selected = targets.resolve(sender, a[2]);
                 int restored = 0;
                 for (Player player : selected) if (inventory.back(player, a[3])) restored++;
-                msg(sender, "&aRestored inventory history for " + restored + " player(s).");
+                if (restored == 0) {
+                    msg(sender, "&eNo snapshot was available at least " + a[3] + " ago for the selected player(s).");
+                } else {
+                    msg(sender, "&aRestored inventory history for " + restored + " player(s).");
+                }
             }
             case "lock", "unlock" -> {
                 if (a.length != 4) {
@@ -1294,6 +1307,28 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
         return targets.suggestions(token).stream().map(value -> listPrefix + value).toList();
     }
 
+    private List<String> historyTimeSuggestions(String partial) {
+        long configuredWindow = Math.max(1L, plugin.getConfig().getLong("history.window-seconds", 300L));
+        long sampleTicks = Math.max(1L, plugin.getConfig().getLong("history.sample-ticks", 100L));
+        long maxSnapshots = Math.max(1L, plugin.getConfig().getLong("history.max-snapshots", 600L));
+        long snapshotCapacity = Math.max(1L, sampleTicks * maxSnapshots / 20L);
+        long effectiveWindow = Math.min(configuredWindow, snapshotCapacity);
+        Map<String, Long> options = new java.util.LinkedHashMap<>();
+        options.put("10s", 10L);
+        options.put("30s", 30L);
+        options.put("1m", 60L);
+        options.put("5m", 300L);
+        options.put("10m", 600L);
+        options.put("30m", 1800L);
+        options.put("1h", 3600L);
+        return options.entrySet().stream()
+                .filter(entry -> entry.getValue() <= effectiveWindow)
+                .map(Map.Entry::getKey)
+                .filter(value -> value.toLowerCase(Locale.ROOT).startsWith(
+                        partial == null ? "" : partial.toLowerCase(Locale.ROOT)))
+                .toList();
+    }
+
     private List<String> inventoryTabs(CommandSender sender, String[] a) {
         if (a.length == 2) return matching(List.of("view", "set", "remove", "give", "take", "clear",
                 "swap", "backup", "restore", "backups", "backup-delete", "record", "back", "lock", "unlock"), a[1]);
@@ -1340,7 +1375,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             if (a.length == 3) return matching(List.of("inventory", "armor", "drop"), a[2]);
             if (a.length == 4) return targets.suggestions(a[3]);
         }
-        if (action.equals("back") && a.length == 4) return matching(List.of("10s", "30s", "1m", "5m", "10m", "30m", "1h"), a[3]);
+        if (action.equals("back") && a.length == 4) return historyTimeSuggestions(a[3]);
         return List.of();
     }
 
