@@ -26,7 +26,7 @@ This reference describes the implemented command tree and identifies unavailable
 /uop checkpoint delete <checkpoint_name>
 /uop checkpoint tp <checkpoint_name> <target>
 /uop checkpoint back <checkpoint_name> <target>
-/uop checkpoint clear all
+/uop checkpoint clear all confirm
 ```
 Each Player receives an independent snapshot. `tp` restores full snapshot and position: world, coordinates, rotation, inventory, armor, offhand, selected slot and effects. Team save reports offline members. TAB suggests saved checkpoint names before target choices.
 
@@ -103,7 +103,7 @@ Membership persists across disconnects and same-name reconnects. Team delete doe
 /uop inv lock <inventory|armor|drop> <target>
 /uop inv unlock <inventory|armor|drop> <target>
 ```
-Team actions are per-member. Team swap requires equal roster size and deterministic pairing; validate and snapshot all members before mutation. Inventory history stores the active recording roster and snapshots in persistent UOP data. Sampling pauses while recorded players are offline and resumes after reconnect; recording state is reloaded after plugin/server restart. `/uop inv record stop <target>` also accepts offline Player/Team names. Saves occur as part of the configured sampling cycle; live crash-recovery and long-duration performance testing are still required.
+Team actions are per-member. Team swap requires equal roster size and deterministic pairing; validate and snapshot all members before mutation. Inventory history stores the active recording roster in `uop.yml` and snapshots in separate per-player files under `history/`. Snapshot serialization happens on the server thread; atomic file writes run on a dedicated writer thread. Legacy history in `uop.yml` migrates lazily on first access. Sampling pauses while recorded players are offline and resumes after reconnect; recording state is reloaded after plugin/server restart. `/uop inv record stop <target>` also accepts offline Player/Team names. Live crash-recovery and long-duration performance testing are still required.
 
 ## Name / tags
 ```text
@@ -124,7 +124,7 @@ Name Glitch is currently an unavailable stub: the optional dependency has not be
 /uop protect add <target> [uuid|ip|both]
 /uop protect remove <target>
 /uop protect list
-/uop protect reset
+/uop protect reset confirm
 ```
 
 ## Permissions and administration
@@ -134,14 +134,16 @@ Name Glitch is currently an unavailable stub: the optional dependency has not be
 /uop permission list <player>
 /uop permission check <player> <node>
 /uop permission reset <player> [node]
-/uop permission reset all
+/uop permission reset all confirm
 /uop help [group]
 /uop help unfreeze
 /uop reload
-/uop reset all
+/uop reset all confirm
 /uop version
+/uop pending list <player>
+/uop pending clear <player> confirm
 ```
-Permission administration is OP/console-only by default.
+Permission administration requires `uop.permission` (granted to OP by default); global permission reset requires explicit `confirm`. Destructive UOP reset, checkpoint clear and protection reset commands also require confirmation.
 
 ## Contextual argument hints
-Examples: `[Saved loadout name]`, `[Checkpoint name]`, `[Team name]`, `[Player / selector]`, `[Enchantment]`, `[Enchantment level]`, `[Inventory slot 0-40]`, `[Multiplier 0-10]`. Suggestions are contextual by command position, including registry-derived enchantment keys and each enchantment's maximum supported level. `/uop` and `/uop help` display the command directory; `/uop help <group>` prints nested syntax and the group is TAB-completable.
+Examples: `[Saved loadout name]`, `[Checkpoint name]`, `[Team name]`, `[Player / selector]`, `[Enchantment]`, `[Enchantment level]`, `[Inventory slot 0-40]`, `[Multiplier 0-10]`. Suggestions are contextual by command position, including registry-derived enchantment keys and each enchantment's maximum supported level. `/uop` and `/uop help` display the command directory; `/uop help <group>` prints nested syntax and the group is TAB-completable. Pending offline actions expire after 30 days, duplicate payloads are suppressed, failed actions are discarded after 10 attempts, and admins can inspect/clear them with `/uop pending`.
