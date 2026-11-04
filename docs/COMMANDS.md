@@ -26,7 +26,7 @@ This reference describes the implemented command tree and identifies unavailable
 /uop checkpoint delete <checkpoint_name>
 /uop checkpoint tp <checkpoint_name> <target>
 /uop checkpoint back <target>
-/uop checkpoint clear all
+/uop checkpoint clear all confirm
 ```
 Each Player receives an independent snapshot. Re-saving a checkpoint replaces its previous roster so stale offline snapshots cannot be mixed with new data. `tp` restores the saved state and stores the player's current state for `back`; `back <target>` restores that pre-teleport state. Snapshots include world (UUID plus name fallback), coordinates, rotation, inventory, armor, offhand, selected slot, health, food, saturation, XP, gamemode, fire/fall state, velocity and potion effects. Teleport success is checked before restore is reported. Team save reports offline members.
 
@@ -44,14 +44,14 @@ Each Player receives an independent snapshot. Re-saving a checkpoint replaces it
 /uop damage reset all
 /uop damage list
 ```
-Player/Team/selectors supported. When no mode is supplied, UUID mode is used by default to avoid lockouts after a dynamic IP change. Explicit IP and both modes are available but can lock out legitimate users when their public IP changes. Offline-mode servers receive a startup warning because names and offline UUIDs are not authenticated identities. Exact pair > outgoing > incoming > global. Friendly-fire OFF cancels direct player and player-projectile damage between teammates. Environmental and non-player-owned damage sources are not attributed to a team owner.
+Player/Team/selectors supported. Exact pair > outgoing > incoming > global. Friendly-fire OFF cancels direct player and player-projectile damage between teammates. Environmental and non-player-owned damage sources are not attributed to a team owner.
 
 ## Enchant / disenchant
 ```text
 /uop enchant <all|armor|equipment|mainhand|offhand|inventory> <target> <enchantment> <level>
 /uop disenchant <all|armor|equipment|hand|inventory> <target> [slot] <enchantment>
 ```
-Target may be Player, Team or selector. Suggest compatible enchantments, levels and slots. Remove only selected enchantment.
+Target may be Player, Team or selector. TAB derives enchantment keys and level suggestions from the server registry; actual item compatibility is validated when applied. Remove only the selected enchantment.
 
 ## Freeze / unfreeze
 ```text
@@ -126,6 +126,7 @@ Name Glitch is currently an unavailable stub: the optional dependency has not be
 /uop protect list
 /uop protect reset confirm
 ```
+When no mode is supplied, UUID mode is used by default to avoid lockouts after a dynamic IP change. Explicit IP and both modes are available but can lock out legitimate users when their public IP changes. Offline-mode servers receive a startup warning because names and offline UUIDs are not authenticated identities.
 
 ## Permissions and administration
 ```text
@@ -133,7 +134,7 @@ Name Glitch is currently an unavailable stub: the optional dependency has not be
 /uop permission revoke <player> <nodes...>
 /uop permission list <player>
 /uop permission check <player> <node>
-/uop permission reset <player> [node]
+/uop permission reset <player> [node|all]
 /uop permission reset all confirm
 /uop help [group]
 /uop help unfreeze
