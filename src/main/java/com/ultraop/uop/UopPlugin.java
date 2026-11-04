@@ -97,6 +97,9 @@ public final class UopPlugin extends JavaPlugin {
     /** Clears persisted UOP data and all runtime state that could recreate it. */
     public void resetAllUopData() {
         if (names != null) names.shutdown();
+        if (inventory != null) inventory.flushHistoryWrites();
+        store.save();
+        store.createBackup("reset-all");
         if (inventory != null) inventory.clearRuntimeRecordingState();
         for (String key : new java.util.ArrayList<>(store.data().getKeys(false))) {
             if (!key.equals("schema-version")) store.data().set(key, null);
