@@ -493,7 +493,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 msg(sender, "&aSaved independent full-state snapshots for " + saved + " player(s).");
                 if (!offline.isEmpty()) msg(sender, "&eOffline members were not captured: &f" + String.join(", ", offline));
             }
-            case "tp", "back" -> {
+            case "tp" -> {
                 if (a.length != 4) {
                     hint(sender, "Select saved checkpoint, then target", "/uop checkpoint tp <checkpoint_name> <target>");
                     return;
@@ -503,6 +503,7 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 for (String name : names) {
                     Player player = Bukkit.getPlayerExact(name);
                     if (player != null && player.isOnline()) {
+                        checkpoints.saveBack(player);
                         int count = checkpoints.restore(a[2], List.of(player));
                         if (count > 0) restored++;
                         else failed++;
@@ -513,8 +514,31 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                         failed++;
                     }
                 }
-                msg(sender, "&aCheckpoint restored for " + restored + " online player(s); queued for " + queued + " offline profile(s).");
-                if (failed > 0) msg(sender, "&e" + failed + " target(s) had no usable snapshot, world or successful teleport; no restore was reported for them.");
+                msg(sender, "&aCheckpoint teleported " + restored + " online player(s); queued for " + queued + " offline profile(s).");
+                if (failed > 0) msg(sender, "&e" + failed + " target(s) had no usable snapshot, world or successful teleport.");
+                if (restored > 0 || queued > 0) msg(sender, "&7Use /uop checkpoint back <target> to return to each player's previous state.");
+            }
+            case "back" -> {
+                if (a.length != 3) {
+                    hint(sender, "Select Player / Team / selector", "/uop checkpoint back <target>");
+                    return;
+                }
+                List<String> names = targets.resolveNames(sender, a[2]);
+                int restored = 0, queued = 0, failed = 0;
+                for (String name : names) {
+                    Player player = Bukkit.getPlayerExact(name);
+                    if (player != null && player.isOnline()) {
+                        if (checkpoints.restoreBack(List.of(player)) > 0) restored++;
+                        else failed++;
+                    } else if (checkpoints.hasBackSnapshot(name)) {
+                        pending.queueCheckpointRestore(name, CheckpointService.BACK_CHECKPOINT);
+                        queued++;
+                    } else {
+                        failed++;
+                    }
+                }
+                msg(sender, "&aReturned " + restored + " online player(s) to their previous state; queued for " + queued + " offline profile(s).");
+                if (failed > 0) msg(sender, "&e" + failed + " target(s) had no saved previous state.");
             }
             case "delete" -> {
                 if (a.length != 3) {
@@ -1461,8 +1485,9 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
     }
     private List<String> checkpointTabs(String[] a) {
         if (a.length == 2) return matching(List.of("save", "tp", "back", "list", "delete", "clear"), a[1]);
-        if (a.length == 3 && List.of("tp", "back", "delete").contains(a[1])) return checkpointNames(a[2]);
-        if (a.length == 4 && List.of("tp", "back", "save").contains(a[1])) return targets.suggestions(a[3]);
+        if (a.length == 3 && List.of("tp", "delete").contains(a[1].toLowerCase(Locale.ROOT))) return checkpointNames(a[2]);
+        if (a.length == 3 && a[1].equalsIgnoreCase("back")) return targets.suggestions(a[2]);
+        if (a.length == 4 && List.of("tp", "save").contains(a[1].toLowerCase(Locale.ROOT))) return targets.suggestions(a[3]);
         if (a.length == 3 && a[1].equals("clear")) return matching(List.of("all"), a[2]);
         return List.of();
     }
