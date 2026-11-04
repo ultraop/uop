@@ -155,7 +155,6 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
             msg(sender, "&e★ name &7— hide, show, glitch, tag");
             msg(sender, "&e★ protect / permission &7— identity and permission management");
             msg(sender, "&e★ pending &7— inspect or clear offline actions");
-            msg(sender, "&e★ pending &7— inspect or clear offline actions");
             msg(sender, "&e★ admin &7— reload, reset all, version");
             msg(sender, "&7Usage: /uop help <group>");
             msg(sender, "&7Targets: ★ Team → @a, @p, @r, @s, @e[type=player] → Player names.");
