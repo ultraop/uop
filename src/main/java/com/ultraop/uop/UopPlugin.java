@@ -120,6 +120,8 @@ public final class UopPlugin extends JavaPlugin {
         historyTask = Bukkit.getScheduler()
                 .runTaskTimer(this, inventory::tickHistory, sampleTicks, sampleTicks).getTaskId();
 
+        names.refreshTagCache();
+        protection.refreshCache();
         names.refreshAll();
     }
 
