@@ -193,6 +193,7 @@ public final class NameService {
         if (!store.data().contains("name-tags." + normalized)) {
             throw new IllegalArgumentException("Name tag not found: " + normalized);
         }
+        store.createBackup("name-tag-delete");
         var players = store.data().getConfigurationSection("players");
         if (players != null) {
             for (String playerKey : players.getKeys(false)) {
