@@ -16,6 +16,7 @@ permissions:
   uop.damage: { default: op }
   uop.enchant: { default: op }
   uop.freeze: { default: op }
+  uop.freeze.exempt: { default: false }
   uop.immortal: { default: op }
   uop.team: { default: op }
   uop.inv: { default: op }
