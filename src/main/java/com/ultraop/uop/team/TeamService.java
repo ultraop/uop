@@ -1,7 +1,6 @@
 package com.ultraop.uop.team;
 
 import com.ultraop.uop.storage.UopStore;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import com.ultraop.uop.target.TargetResolver;
 
@@ -21,21 +20,13 @@ public final class TeamService {
         this.defaultFriendlyFire = defaultFriendlyFire;
     }
 
-    public void defaultFriendlyFire(boolean enabled) {
-        this.defaultFriendlyFire = enabled;
-    }
+    public void defaultFriendlyFire(boolean enabled) { this.defaultFriendlyFire = enabled; }
 
-    public static String key(String value) {
-        return value.toLowerCase(Locale.ROOT);
-    }
+    public static String key(String value) { return value.toLowerCase(Locale.ROOT); }
 
-    private String base(String team) {
-        return "teams.entries." + key(team);
-    }
+    private String base(String team) { return "teams.entries." + key(team); }
 
-    public boolean exists(String team) {
-        return team != null && store.data().isConfigurationSection(base(team));
-    }
+    public boolean exists(String team) { return team != null && store.data().isConfigurationSection(base(team)); }
 
     public void create(String team) {
         validateTeamName(team);
@@ -77,9 +68,7 @@ public final class TeamService {
         return result;
     }
 
-    public void add(String team, String playerName) {
-        addAll(team, List.of(playerName));
-    }
+    public void add(String team, String playerName) { addAll(team, List.of(playerName)); }
 
     public void addAll(String team, List<String> playerNames) {
         requireTeam(team);
@@ -105,10 +94,17 @@ public final class TeamService {
 
     public void remove(String team, String playerName) {
         requireTeam(team);
+        validatePlayerName(playerName);
         List<String> names = members(team);
-        names.removeIf(n -> key(n).equals(key(playerName)));
+        boolean removed = names.removeIf(n -> key(n).equals(key(playerName)));
+        if (!removed) throw new IllegalArgumentException(playerName + " is not a member of team " + displayName(team) + ".");
+        // Only mutate the profile after confirming membership. Avoid key(null) and
+        // prevent a failed removal from leaving the roster/profile out of sync.
+        String currentTeam = teamOf(playerName);
+        if (currentTeam != null && key(team).equals(key(currentTeam))) {
+            store.data().set("players." + key(playerName) + ".team", null);
+        }
         store.data().set(base(team) + ".members", names);
-        if (key(team).equals(key(teamOf(playerName)))) store.data().set("players." + key(playerName) + ".team", null);
         store.save();
     }
 
