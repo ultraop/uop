@@ -107,20 +107,18 @@ public final class PendingActionService {
         }
         List<Map<String, Object>> actions = new ArrayList<>();
         long now = System.currentTimeMillis();
+        boolean duplicate = false;
         for (Map<?, ?> old : store.data().getMapList(path(playerName))) {
             Map<String, Object> copy = copy(old);
             if (expired(copy, now)) continue;
-            if (samePayload(copy, action)) {
-                actions.add(copy);
-                store.data().set(path(playerName), actions);
-                store.save();
-                return;
-            }
+            if (samePayload(copy, action)) duplicate = true;
             actions.add(copy);
         }
-        action.put("created-at", now);
-        action.put("attempts", 0);
-        actions.add(action);
+        if (!duplicate) {
+            action.put("created-at", now);
+            action.put("attempts", 0);
+            actions.add(action);
+        }
         store.data().set(path(playerName), actions);
         store.save();
     }
@@ -174,6 +172,7 @@ public final class PendingActionService {
         long now = System.currentTimeMillis();
         for (Map<?, ?> raw : pending) {
             Map<String, Object> action = copy(raw);
+            if (!action.containsKey("created-at")) action.put("created-at", now);
             if (expired(action, now)) {
                 plugin.getLogger().warning("Expired pending UOP action discarded for " + player.getName()
                         + ": " + action.get("type"));
