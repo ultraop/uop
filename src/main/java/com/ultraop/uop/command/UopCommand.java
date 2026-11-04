@@ -125,7 +125,6 @@ public final class UopCommand implements CommandExecutor, TabCompleter {
                 case "name" -> name(sender, args);
                 case "protect" -> protect(sender, args);
                 case "permission" -> permission(sender, args);
-            case "pending" -> pending(sender, args);
                 default -> {
                     msg(sender, "&cUnknown command. Use /uop help.");
                 }
