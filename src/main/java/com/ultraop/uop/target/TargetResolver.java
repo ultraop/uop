@@ -33,17 +33,12 @@ public final class TargetResolver {
         return value;
     }
 
-    private List<String> splitExpressions(String input) {
-        return TargetExpressionParser.split(input);
-    }
-
-    /** Resolves online players only; Team expressions expand to online roster members. */
     public List<Player> resolve(CommandSender sender, String expression) {
         String input = clean(expression);
         if (input.isBlank()) throw new IllegalArgumentException("Target is required. [Team / Player / selector]");
         Map<String, Player> result = new LinkedHashMap<>();
-        for (String token : splitExpressions(input)) {
-            if (token.isEmpty()) continue;
+        for (String rawToken : TargetExpressionParser.split(input)) {
+            String token = clean(rawToken);
             if (teams.exists(token)) {
                 for (Player player : teams.onlineMembers(token)) result.putIfAbsent(player.getUniqueId().toString(), player);
             } else if (token.startsWith("@")) {
@@ -65,13 +60,12 @@ public final class TargetResolver {
         return new ArrayList<>(result.values());
     }
 
-    /** Resolves durable username targets. Team membership is retained even while members are offline. */
     public List<String> resolveNames(CommandSender sender, String expression) {
         String input = clean(expression);
         if (input.isBlank()) throw new IllegalArgumentException("Target is required. [Team / Player / selector]");
         Map<String, String> result = new LinkedHashMap<>();
-        for (String token : splitExpressions(input)) {
-            if (token.isEmpty()) continue;
+        for (String rawToken : TargetExpressionParser.split(input)) {
+            String token = clean(rawToken);
             if (teams.exists(token)) {
                 for (String name : teams.members(token)) result.putIfAbsent(name.toLowerCase(Locale.ROOT), name);
             } else if (token.startsWith("@")) {
@@ -91,19 +85,49 @@ public final class TargetResolver {
         return new ArrayList<>(result.values());
     }
 
-    /** Team suggestions are first; selectors and online names follow. */
     public List<String> suggestions(String partial) {
-        String prefix = clean(partial).toLowerCase(Locale.ROOT);
-        List<String> result = new ArrayList<>();
+        String value = partial == null ? "" : partial;
+        int lastComma = lastTopLevelComma(value);
+        String prefix = lastComma < 0 ? "" : value.substring(0, lastComma + 1);
+        String current = value.substring(lastComma + 1);
+        String trimmed = current.trim();
+        String marker = trimmed.startsWith("★") ? "★" : "";
+        String filter = clean(trimmed).toLowerCase(Locale.ROOT);
+        List<String> options = new ArrayList<>();
+
         for (String teamKey : teams.list()) {
             String name = teams.displayName(teamKey);
-            if (name.toLowerCase(Locale.ROOT).startsWith(prefix)) result.add("★" + name);
+            if (name.toLowerCase(Locale.ROOT).startsWith(filter)) options.add("★" + name);
         }
         for (String selector : List.of("@a", "@p", "@r", "@s", "@e[type=player]")) {
-            if (selector.startsWith(prefix)) result.add(selector);
+            if (selector.startsWith(filter)) options.add(selector);
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) result.add(player.getName());
+            if (player.getName().toLowerCase(Locale.ROOT).startsWith(filter)) options.add(player.getName());
+        }
+        String preservedPrefix = prefix;
+        if (!marker.isEmpty() && preservedPrefix.isEmpty()) return options.stream().map(option -> option.startsWith("★") ? option : option).toList();
+        return options.stream().map(option -> preservedPrefix + option).toList();
+    }
+
+    private int lastTopLevelComma(String input) {
+        java.util.ArrayDeque<Character> stack = new java.util.ArrayDeque<>();
+        char quote = 0;
+        boolean escaped = false;
+        int result = -1;
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (quote != 0) {
+                if (escaped) escaped = false;
+                else if (c == '\\') escaped = true;
+                else if (c == quote) quote = 0;
+                continue;
+            }
+            if (c == '"' || c == '\'') quote = c;
+            else if (c == '[' || c == '{' || c == '(') stack.push(c);
+            else if (c == ']' || c == '}' || c == ')') {
+                if (!stack.isEmpty()) stack.pop();
+            } else if (c == ',' && stack.isEmpty()) result = i;
         }
         return result;
     }
