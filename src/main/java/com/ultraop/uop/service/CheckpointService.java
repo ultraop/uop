@@ -167,11 +167,11 @@ public final class CheckpointService {
             player.setSaturation(Math.max(0.0f, saturation));
             double health = store.data().getDouble(base + ".health", 20.0);
             player.setHealth(Math.max(1.0, Math.min(player.getMaxHealth(), health)));
-            player.setLevel(Math.max(0, store.data().getInt(base + ".level", 0)));
-            player.setExp(Math.max(0.0f, Math.min(1.0f, (float) store.data().getDouble(base + ".exp", 0.0))));
-            player.setTotalExperience(Math.max(0, store.data().getInt(base + ".total-experience", 0)));
-            player.setFireTicks(Math.max(0, store.data().getInt(base + ".fire-ticks", 0)));
-            player.setFallDistance(Math.max(0.0f, (float) store.data().getDouble(base + ".fall-distance", 0.0)));
+            if (store.data().contains(base + ".level")) player.setLevel(Math.max(0, store.data().getInt(base + ".level", 0)));
+            if (store.data().contains(base + ".exp")) player.setExp(Math.max(0.0f, Math.min(1.0f, (float) store.data().getDouble(base + ".exp", 0.0))));
+            if (store.data().contains(base + ".total-experience")) player.setTotalExperience(Math.max(0, store.data().getInt(base + ".total-experience", 0)));
+            if (store.data().contains(base + ".fire-ticks")) player.setFireTicks(Math.max(0, store.data().getInt(base + ".fire-ticks", 0)));
+            if (store.data().contains(base + ".fall-distance")) player.setFallDistance(Math.max(0.0f, (float) store.data().getDouble(base + ".fall-distance", 0.0)));
             Object velocity = store.data().get(base + ".velocity");
             if (velocity instanceof Vector vector) player.setVelocity(vector.clone());
             String gameMode = store.data().getString(base + ".game-mode", "");
