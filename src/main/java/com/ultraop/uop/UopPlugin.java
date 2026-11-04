@@ -45,6 +45,10 @@ public final class UopPlugin extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         initializeServices();
+        if (!Bukkit.getOnlineMode()) {
+            getLogger().warning("online-mode=false: Minecraft UUIDs are not authenticated by Mojang. "
+                    + "Username-based UOP profiles and UUID protection cannot prove player identity on this server.");
+        }
         PluginCommand root = getCommand("uop");
         if (root == null) throw new IllegalStateException("The /uop command is missing from plugin.yml");
         UopCommand executor = new UopCommand(this, teams, targets, kits, loadouts, checkpoints,
