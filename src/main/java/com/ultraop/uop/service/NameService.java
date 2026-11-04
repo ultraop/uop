@@ -184,6 +184,7 @@ public final class NameService {
         store.data().set(base + ".bold", bold);
         store.data().set(base + ".italic", italic);
         store.save();
+        refreshTagCache();
     }
 
     public List<String> tags() {
@@ -212,7 +213,8 @@ public final class NameService {
         store.data().set("name-tags." + normalized, null);
         store.save();
         refreshTagCache();
-        refreshAssigned(normalized);
+        // Assignments were removed above; refresh all online players to clear the old display tag.
+        refreshAll();
     }
 
     public void give(String playerName, String id) {
