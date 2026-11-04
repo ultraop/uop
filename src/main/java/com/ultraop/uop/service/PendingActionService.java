@@ -1,6 +1,7 @@
 package com.ultraop.uop.service;
 
 import com.ultraop.uop.storage.UopStore;
+import com.ultraop.uop.service.InventoryService;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -18,16 +19,18 @@ public final class PendingActionService {
     private final ArmorLoadoutService loadouts;
     private final CheckpointService checkpoints;
     private final EnchantService enchants;
+    private final InventoryService inventory;
 
     public PendingActionService(UopStore store, JavaPlugin plugin, ArmorKitService kits,
                                 ArmorLoadoutService loadouts, CheckpointService checkpoints,
-                                EnchantService enchants) {
+                                EnchantService enchants, InventoryService inventory) {
         this.store = store;
         this.plugin = plugin;
         this.kits = kits;
         this.loadouts = loadouts;
         this.checkpoints = checkpoints;
         this.enchants = enchants;
+        this.inventory = inventory;
     }
 
     private String path(String playerName) {
@@ -230,6 +233,8 @@ public final class PendingActionService {
                 return kits.giveDirect(player, material, level);
             }
             case "loadout" -> {
+                if (!loadouts.exists(String.valueOf(action.get("name")))) return false;
+                inventory.backup(player, "auto-pre-loadout-" + System.nanoTime());
                 return loadouts.give(String.valueOf(action.get("name")), player);
             }
             case "enchant" -> {
